@@ -1,10 +1,11 @@
 import http from 'node:http';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 
-import { PORT, DATA_DIR, UPLOAD_DIR, SITE_PASSWORD, MAX_UPLOAD_BYTES } from './config.js';
+import { PORT, DATA_DIR, UPLOAD_DIR, DB_PATH, SITE_PASSWORD, MAX_UPLOAD_BYTES } from './config.js';
 import { seedIfEmpty, hasFts } from './db.js';
 import { authContext } from './auth.js';
 import { api } from './routes.js';
@@ -58,6 +59,76 @@ app.use((err, _req, res, _next) => {
 const server = http.createServer(app);
 initRealtime(server);
 
+/* ------------------------------------------------------------------ *
+ * "is my world actually on a volume?" check
+ *
+ * Everything the two of you make lives in DATA_DIR: chirper.db and
+ * uploads/. In Docker that folder has to be a mount (`./data:/data` in
+ * docker-compose.yml). If it is not, the database and every image sit in
+ * the container's writable layer and the next
+ * `docker compose up -d --build` silently throws the lot away. Shout
+ * about it at boot instead.
+ * ------------------------------------------------------------------ */
+function looksContainerised() {
+  try {
+    if (fs.existsSync('/.dockerenv')) return true;
+  } catch {
+    /* not linux */
+  }
+  try {
+    return /docker|containerd|kubepods|podman/.test(fs.readFileSync('/proc/1/cgroup', 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+function isMountPoint(dir) {
+  let info = '';
+  try {
+    info = fs.readFileSync('/proc/self/mountinfo', 'utf8');
+  } catch {
+    return true; // cannot tell — say nothing rather than cry wolf
+  }
+  let real = dir;
+  try {
+    real = fs.realpathSync(dir);
+  } catch {
+    /* keep the raw path */
+  }
+  return info.split('\n').some((line) => {
+    const mount = line.split(' ')[4];
+    return mount ? mount.replace(/\\040/g, ' ') === real : false;
+  });
+}
+
+function dataWarning() {
+  if (!looksContainerised() || isMountPoint(DATA_DIR)) return '';
+  return [
+    '  !! DANGER: the data folder is not on a mounted volume',
+    `  !! ${DATA_DIR} lives inside this container, so ${path.basename(DB_PATH)} and every`,
+    '  !! uploaded image disappear the moment the container is recreated.',
+    '  !! Mount it:  docker-compose.yml ->  volumes:  - ./data:/data',
+  ].join('\n');
+}
+
+function mediaSummary() {
+  try {
+    const files = fs.readdirSync(UPLOAD_DIR);
+    let bytes = 0;
+    for (const f of files) {
+      try {
+        bytes += fs.statSync(path.join(UPLOAD_DIR, f)).size;
+      } catch {
+        /* vanished mid-scan */
+      }
+    }
+    const mb = bytes / 1024 / 1024;
+    return `${files.length} file${files.length === 1 ? '' : 's'} · ${mb < 1 ? `${Math.round(bytes / 1024)}KB` : `${mb.toFixed(1)}MB`}`;
+  } catch {
+    return 'unreadable';
+  }
+}
+
 server.listen(PORT, () => {
   const weak = SITE_PASSWORD === 'letmein' ? '  ** using the default password - set SITE_PASSWORD in .env!' : '';
   console.log(
@@ -66,11 +137,12 @@ server.listen(PORT, () => {
       '  Chirper is running',
       '  ---------------------------------------------',
       `   url         http://localhost:${PORT}`,
-      `   data dir    ${DATA_DIR}`,
-      `   uploads     ${UPLOAD_DIR}`,
+      `   data dir    ${DATA_DIR}${looksContainerised() ? (isMountPoint(DATA_DIR) ? '  (mounted - safe to rebuild)' : '  (in the container!)') : ''}`,
+      `   uploads     ${UPLOAD_DIR} · ${mediaSummary()}`,
       `   search      ${hasFts ? 'sqlite fts5' : 'LIKE fallback'}`,
       `   max upload  ${(MAX_UPLOAD_BYTES / 1024 / 1024).toFixed(0)}MB per image`,
       weak,
+      dataWarning(),
       '',
     ]
       .filter(Boolean)

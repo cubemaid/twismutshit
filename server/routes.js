@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'node:path';
+import fs from 'node:fs';
 import crypto from 'node:crypto';
 
 import { db, setSetting, seedIfEmpty } from './db.js';
@@ -897,6 +898,65 @@ const TABLES = [
   'messages',
   'conversation_reads',
 ];
+
+/**
+ * Where the images actually are: what the database asks for, what is on disk,
+ * and which of the two do not line up. Handy right after a deploy - a missing
+ * count that jumps means DB and uploads/ came from different machines.
+ */
+api.get('/admin/storage', requireAuth, (_req, res) => {
+  const referenced = new Map(); // filename -> where it is used
+  const remember = (url, label) => {
+    const file = path.basename(String(url || '').split('?')[0]);
+    if (!file) return;
+    if (!referenced.has(file)) referenced.set(file, []);
+    referenced.get(file).push(label);
+  };
+
+  for (const r of db.prepare('SELECT post_id, url FROM post_media').all()) remember(r.url, `post #${r.post_id}`);
+  for (const r of db.prepare('SELECT handle, avatar, banner FROM accounts').all()) {
+    remember(r.avatar, `@${r.handle} avatar`);
+    remember(r.banner, `@${r.handle} banner`);
+  }
+  for (const r of db.prepare('SELECT id, media FROM messages').all()) {
+    let list = [];
+    try {
+      list = JSON.parse(r.media || '[]');
+    } catch {
+      /* older row */
+    }
+    list.forEach((m) => remember(m?.url, `message #${r.id}`));
+  }
+
+  let onDisk = [];
+  try {
+    onDisk = fs.readdirSync(UPLOAD_DIR);
+  } catch {
+    /* nothing yet */
+  }
+  const files = new Set(onDisk);
+  const bytes = onDisk.reduce((sum, f) => {
+    try {
+      return sum + fs.statSync(path.join(UPLOAD_DIR, f)).size;
+    } catch {
+      return sum;
+    }
+  }, 0);
+
+  const missing = [...referenced.entries()]
+    .filter(([file]) => !files.has(file))
+    .map(([file, usedBy]) => ({ file, usedBy }));
+  const orphans = onDisk.filter((f) => !referenced.has(f));
+
+  res.json({
+    uploadDir: UPLOAD_DIR,
+    referenced: referenced.size,
+    onDisk: onDisk.length,
+    bytes,
+    missing,
+    orphans,
+  });
+});
 
 api.get('/export', requireAuth, (_req, res) => {
   const dump = { version: 1, exportedAt: Date.now(), tables: {} };

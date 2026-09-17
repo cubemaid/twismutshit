@@ -91,6 +91,9 @@ as *just now*. Everything updates live for both of you at the same time.
 - Set the send time of any message, edit text, edit its timestamp, delete it
 - Live typing indicators ("Writer 2 is typing…")
 - Live delivery — messages appear instantly for the other person
+- Only the message list scrolls: the header and the message box are pinned, so the input can
+  never drift off-screen — including on Android, where the URL bar sliding away used to push it
+  below the fold
 
 **Explore & search**
 - Editable "Trending" list (Admin → Trends) shown in Explore and the sidebar
@@ -164,10 +167,50 @@ server {
 
 The `Upgrade`/`Connection` headers matter — they're what makes the live sync work.
 
-Updating:
+### Updating without losing your media
+
+Your whole world — `chirper.db` and every uploaded image in `uploads/` — lives in the single
+host folder `./data`, which `docker-compose.yml` mounts into the container as `/data`. Rebuilding
+the image replaces **code only**; that folder is never touched. Same for `git pull`: `data/` is
+in `.gitignore`, so git cannot overwrite or delete it.
 
 ```bash
-git pull && docker compose up -d --build
+cd chirper
+cp -r data data.bak          # cheap insurance, takes a second
+git pull
+docker compose up -d --build
+docker compose logs --tail 20 chirper
+```
+
+That last line is the important one. The boot banner tells you where your data actually is:
+
+```
+   data dir    /data  (mounted - safe to rebuild)
+   uploads     /data/uploads · 12 files · 34.2MB
+```
+
+If `data dir` says **(in the container!)** instead, or the log prints a `!! DANGER` block, stop —
+the folder is not mounted and the next rebuild would take the database and all images with it.
+Fix the `volumes:` line in `docker-compose.yml` (`- ./data:/data`) before going further. Watching
+the `uploads` file count is a good habit: if it drops to 0 after an update, the mount moved.
+
+Two ways people accidentally lose media, both avoidable:
+
+- **`docker compose down -v`** — the `-v` deletes volumes. Harmless with the bind mount, fatal if
+  you ever switch the volume to a named one.
+- **Starting a container without the volume** (`docker run chirper:latest` with no `-v ./data:/data`)
+  — it gets a brand-new empty `/data` and looks wiped. Always go through `docker compose`.
+
+To check the result from anywhere: **Admin → Data → Stored images** reports how many files are in
+`uploads/`, how much space they take, and — the part that matters — any image the database
+references but that is not on disk, plus any file nothing uses any more. "Every referenced image
+is present" after an update means your media came through untouched.
+
+To move a world between machines, copy **both** the database and the uploads — one without the
+other is exactly what makes every image on the site break:
+
+```bash
+tar czf chirper-world.tgz -C chirper data
 ```
 
 ### Without Docker

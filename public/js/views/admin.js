@@ -360,6 +360,11 @@ async function doReset(scope) {
 function renderData(body) {
   const wrap = el(`<div>
     <div class="card" style="margin-bottom:16px">
+      <div class="card-head sm">${icons.image} Stored images</div>
+      <div class="card-body" data-storage><div class="small muted">Checking…</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
       <div class="card-head sm">${icons.download} Backup</div>
       <div class="card-body">
         <p class="muted small" style="margin-top:0">A single JSON file with every account, post, DM, like, follow, notification and trend.</p>
@@ -401,4 +406,43 @@ function renderData(body) {
   wrap.querySelector('[data-reset-posts]').addEventListener('click', () => doReset('posts'));
   wrap.querySelector('[data-reset-all]').addEventListener('click', () => doReset('all'));
   body.appendChild(wrap);
+  loadStorage(wrap.querySelector('[data-storage]'));
+}
+
+/**
+ * "Are the images actually here?" - the database and uploads/ have to travel
+ * together. A deploy that swaps one without the other shows up right here.
+ */
+async function loadStorage(node) {
+  try {
+    const s = await api('/admin/storage');
+    const mb = s.bytes / 1024 / 1024;
+    const size = mb < 1 ? `${Math.round(s.bytes / 1024)}KB` : `${mb.toFixed(1)}MB`;
+    const bits = [`<b>${s.onDisk}</b> file${s.onDisk === 1 ? '' : 's'} · ${size}`, `<span class="muted">${esc(s.uploadDir)}</span>`];
+    if (s.missing.length) {
+      bits.push(
+        `<div class="warn-box" style="margin-top:12px">
+          <b>${s.missing.length} image${s.missing.length === 1 ? '' : 's'} referenced but missing from disk.</b>
+          <div class="muted small" style="margin-top:6px">
+            The database and <code>uploads/</code> came from different places. Copy the matching
+            <code>uploads</code> folder next to <code>chirper.db</code> and reload.
+          </div>
+          <ul class="muted small" style="margin:8px 0 0;padding-left:18px;line-height:1.7">
+            ${s.missing.map((m) => `<li><code>${esc(m.file)}</code> — ${esc(m.usedBy.join(', '))}</li>`).join('')}
+          </ul>
+        </div>`
+      );
+    }
+    if (s.orphans.length) {
+      bits.push(
+        `<div class="muted small" style="margin-top:10px">${s.orphans.length} file${s.orphans.length === 1 ? '' : 's'} on disk that nothing uses any more — safe to ignore, or delete to save space.</div>`
+      );
+    }
+    if (!s.missing.length && !s.orphans.length) {
+      bits.push('<div class="small muted" style="margin-top:8px">Every referenced image is present. 💚</div>');
+    }
+    node.innerHTML = bits.join('<div style="margin-top:4px"></div>');
+  } catch (err) {
+    node.innerHTML = `<div class="small muted">Could not read the storage folder: ${esc(err.message)}</div>`;
+  }
 }
