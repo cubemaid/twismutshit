@@ -1,0 +1,22 @@
+{
+  "name": "chirper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A self-hosted, fully editable Twitter clone for collaborative roleplay writing.",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "multer": "^2.0.1",
+    "socket.io": "^4.8.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,17 @@
+services:
+  chirper:
+    build: .
+    image: chirper:latest
+    container_name: chirper
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      SITE_PASSWORD: "${SITE_PASSWORD:-letmein}"
+      SESSION_SECRET: "${SESSION_SECRET:-change-me-to-something-long-and-random}"
+      DATA_DIR: /data
+      PORT: 3000
+      TZ: "${TZ:-UTC}"
+    volumes:
+      # everything persistent lives here: chirper.db + uploads/
+      - ./data:/data
