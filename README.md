@@ -88,6 +88,10 @@ as *just now*. Everything updates live for both of you at the same time.
   with the sender's avatar once at the top of each run of messages, and "Sent" under your
   last one
 - Send photos as well as text
+- **Paste a post link and the post shows up underneath**, like X — full URL, `#/p/12` or `/p/12`
+  all work, up to two per message, and each post is fetched once no matter how often it is linked.
+  The preview is a real post card without the action buttons: tap it to open the post, while
+  mentions and hashtags inside it stay tappable
 - Set the send time of any message, edit text, edit its timestamp, delete it
 - Live typing indicators ("Writer 2 is typing…")
 - Live delivery — messages appear instantly for the other person

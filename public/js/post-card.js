@@ -15,11 +15,13 @@ import {
   openModal,
   confirmDialog,
   pickAccount,
+  route,
   toast,
   timeHTML,
 } from './ui.js';
 import { openEditComposer, openQuoteComposer, openReplyComposer, openTimePicker } from './composer.js';
 import { setShotMode } from './screenshot.js';
+import { fetchPost, postIdsIn, stripPostLinks } from './links.js';
 
 /* ------------------------------------------------------------------ *
  * live registry so realtime updates can patch cards in place
@@ -425,17 +427,54 @@ function openRepostMenu(ev, post) {
 /* ------------------------------------------------------------------ *
  * card
  * ------------------------------------------------------------------ */
-export function postCard(post, { showReplyTo = true, reposter = null, clickable = true, highlight = false, onReply = null } = {}) {
+/** the body text with the links we are about to embed taken out of it */
+function captionOf(post, ids) {
+  return ids.length ? stripPostLinks(post.text, ids) : post.text;
+}
+
+/**
+ * A post that links another post shows that post, the way a quote does — one
+ * level deep only, so a chain of links cannot render itself forever.
+ */
+async function fillEmbeds(card, ids) {
+  for (const holder of card.querySelectorAll('.post-embed[data-embed]')) {
+    if (holder.dataset.filled === '1') continue;
+    const id = Number(holder.dataset.embed);
+    const dto = await fetchPost(id);
+    if (!dto || !holder.isConnected) {
+      holder.remove();
+      continue;
+    }
+    const inner = postCard(dto, { clickable: false, showReplyTo: false, embed: false });
+    inner.querySelector('.post-actions')?.remove();
+    holder.appendChild(inner);
+    holder.dataset.filled = '1';
+    holder.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return; // mentions and hashtags keep working
+      route.go(`/p/${dto.id}`);
+    });
+  }
+}
+
+function embedHolders(ids) {
+  return ids.map((id) => `<div class="post-embed" data-embed="${id}" title="Open this post"></div>`).join('');
+}
+
+export function postCard(post, { showReplyTo = true, reposter = null, clickable = true, highlight = false, onReply = null, embed = true } = {}) {
+  const linkIds = embed ? postIdsIn(post.text) : [];
+  const caption = captionOf(post, linkIds);
   const card = el(`<article class="post" data-post-id="${post.id}">
     <div class="post-avatar">${avatarHTML(post.author, 'a48')}</div>
     <div class="post-main">
       ${headHTML(post, { showReplyTo, reposter })}
-      <div class="post-text">${linkify(post.text)}</div>
+      ${caption ? `<div class="post-text">${linkify(caption)}</div>` : ''}
       ${mediaHTML(post)}
       ${quoteHTML(post)}
+      ${embedHolders(linkIds)}
       ${actionsHTML(post)}
     </div>
   </article>`);
+  if (linkIds.length) fillEmbeds(card, linkIds);
   if (highlight) card.style.background = 'rgba(29,155,240,.06)';
 
   /* An image whose file is gone must not leave an empty bordered box behind.
@@ -456,8 +495,19 @@ export function postCard(post, { showReplyTo = true, reposter = null, clickable 
     const head = card.querySelector('.post-head');
     const freshHead = el(`<div>${headHTML({ ...dto }, { showReplyTo, reposter })}</div>`);
     head.replaceWith(freshHead.firstElementChild);
+
+    // the body may now link (or stop linking) another post
+    const ids = embed ? postIdsIn(dto.text) : [];
     const text = card.querySelector('.post-text');
-    text.innerHTML = linkify(dto.text);
+    const freshText = captionOf(dto, ids);
+    const textHTML = freshText ? linkify(freshText) : '';
+    if (textHTML && text) text.innerHTML = textHTML;
+    else if (textHTML) card.querySelector('.post-head').insertAdjacentHTML('afterend', `<div class="post-text">${textHTML}</div>`);
+    else if (text) text.remove();
+    card.querySelectorAll('.post-embed').forEach((n) => n.remove());
+    card.querySelector('.post-actions').insertAdjacentHTML('beforebegin', embedHolders(ids));
+    if (ids.length) fillEmbeds(card, ids);
+
     const actions = card.querySelector('.post-actions');
     const fresh = el(`<div>${actionsHTML(dto)}</div>`);
     actions.replaceWith(fresh.querySelector('.post-actions'));

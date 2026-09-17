@@ -16,10 +16,13 @@ import {
   confirmDialog,
   openLightbox,
   pickAccount,
+  route,
   toast,
   debounce,
 } from '../ui.js';
 import { colHead } from '../shell.js';
+import { postCard } from '../post-card.js';
+import { fetchPost, postIdsIn, stripPostLinks } from '../links.js';
 import { openTimePicker as pickTime } from '../composer.js';
 
 export function messagesView({ id = null } = {}) {
@@ -443,6 +446,32 @@ function threadView(id) {
   return { element: root, mainClass: 'dm-main', refresh: load };
 }
 
+/* ------------------------------------------------------------------ *
+ * post links inside messages
+ *
+ * Paste a post link into a DM and the post itself appears underneath, the way
+ * X does it. The link text itself is dropped — anything else you wrote stays
+ * as the caption above it.
+ * ------------------------------------------------------------------ */
+function attachPostEmbeds(row, ids) {
+  if (!ids.length) return;
+  const anchor = row.querySelector('.dm-text') || row.querySelector('.dm-media');
+  ids.forEach(async (id) => {
+    const post = await fetchPost(id);
+    if (!post || !row.isConnected) return;
+    const holder = el(`<div class="post-embed" title="Open this post"></div>`);
+    const card = postCard(post, { clickable: false, showReplyTo: false, embed: false });
+    card.querySelector('.post-actions')?.remove(); // a preview, not a control panel
+    holder.appendChild(card);
+    holder.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return; // mentions and hashtags keep working
+      route.go(`/p/${post.id}`);
+    });
+    if (anchor) anchor.after(holder);
+    else row.querySelector('.dm-body')?.prepend(holder);
+  });
+}
+
 function messageRow(msg, reload, { isLast = false, showAvatar = true, groupStart = true } = {}) {
   const mine = msg.senderId === acting()?.id;
   const avatarCell = mine
@@ -450,6 +479,8 @@ function messageRow(msg, reload, { isLast = false, showAvatar = true, groupStart
     : showAvatar
       ? `<div class="dm-avatar">${avatarHTML(msg.sender, 'a32')}</div>`
       : '<div class="dm-avatar dm-avatar-spacer"></div>';
+  const linkIds = postIdsIn(msg.text);
+  const caption = linkIds.length ? stripPostLinks(msg.text, linkIds) : msg.text;
   const row = el(`<div class="dm-line${mine ? ' mine' : ''}${groupStart ? ' group-start' : ' group-cont'}" data-id="${msg.id}">
     ${avatarCell}
     <div class="dm-body">
@@ -462,7 +493,7 @@ function messageRow(msg, reload, { isLast = false, showAvatar = true, groupStart
           : ''
       }
       ${msg.media?.length ? `<div class="dm-media">${msg.media.map((m) => `<img src="${esc(m.url)}" alt="${esc(m.alt || '')}" loading="lazy">`).join('')}</div>` : ''}
-      ${msg.text ? `<div class="dm-text">${linkify(msg.text)}</div>` : ''}
+      ${caption ? `<div class="dm-text">${linkify(caption)}</div>` : ''}
       ${isLast && mine ? '<div class="dm-sent">Sent</div>' : ''}
       ${msg.editedAt ? '<div class="dm-sent">Edited</div>' : ''}
     </div>
@@ -488,6 +519,7 @@ function messageRow(msg, reload, { isLast = false, showAvatar = true, groupStart
       ]
     );
   });
+  attachPostEmbeds(row, linkIds);
   return row;
 }
 

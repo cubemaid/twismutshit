@@ -706,6 +706,26 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
 
 .msg-list { padding: 0 0 12px; display: flex; flex-direction: column; }
 
+/* a post linked from another post or from a DM shows the post itself, like X */
+.post-embed {
+  margin-top: 8px; max-width: 440px;
+  border: 1px solid var(--border); border-radius: 14px;
+  background: rgba(255, 255, 255, .02);
+  overflow: hidden; cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.post-embed:empty { display: none; }
+.post-embed:hover { background: rgba(255, 255, 255, .045); border-color: var(--text-faint); }
+.post-embed .post { padding: 10px 12px; border-bottom: none; cursor: pointer; gap: 10px; }
+.post-embed .post:hover { background: none; }
+.post-embed .post-avatar .avatar { width: 30px; height: 30px; font-size: 13px; }
+.post-embed .post-head { font-size: 13.5px; }
+.post-embed .post-text { font-size: 14px; }
+.post-embed .post-media { margin-top: 8px; border-radius: 12px; }
+.post-embed .post-media img { max-height: 300px; }
+.post-embed .quote-card { margin-top: 8px; }
+
+
 /* the profile card Twitter shows at the top of a conversation */
 .dm-intro {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
