@@ -3,7 +3,7 @@ import { el, openModal } from './ui.js';
 
 /**
  * "Clean view" — hides the Chirper-only furniture (time machine, who's-here,
- * admin, filter chips, app badges) so a post looks like a real screenshot.
+ * admin, status bar, app badges) so a post looks like a real screenshot.
  * The optional toggles strip more if you want them gone.
  *
  * Press `S`, the camera button, or the post ⋯ menu to toggle.
@@ -99,10 +99,10 @@ export function initScreenshotMode() {
 export function openShotHelp() {
   const body = el(`<div>
     <p style="margin-top:0">Screenshot mode hides the Chirper-only bits — the time machine, who's here,
-    the filter chips, the Admin link and the app badges — so what's left looks like a real Twitter page.</p>
+    the Admin link and the app badges — so what's left looks like a real Twitter page.</p>
     <ul class="muted small" style="padding-left:18px;line-height:1.7">
       <li>Press <b>S</b>, or use the menu / Settings → Screenshots, to turn it on and off.</li>
-      <li><b>Sidebar</b> also hides the left nav and the right column, leaving just the posts.</li>
+      <li><b>Sidebar</b> also hides the left nav, the right column and the status bar, leaving just the posts.</li>
       <li><b>Header</b> hides the column title and tabs.</li>
       <li><b>Stats</b> hides the reply / repost / like / bookmark row.</li>
       <li>The control bar only appears when you move the mouse to the bottom of the window.</li>

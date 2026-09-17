@@ -2,7 +2,7 @@ import { api } from '../api.js';
 import { icons } from '../icons.js';
 import { accountById, acting, on, state, setBadges } from '../store.js';
 import { socketTyping } from '../socket.js';
-import { pickAndUpload } from '../upload.js';
+import { pickCropAndUpload } from '../upload.js';
 import { dayLabel, fullDate, now, relative, stamp, timeOfDay, toLocalInput, fromLocalInput } from '../time.js';
 import {
   avatarHTML,
@@ -274,7 +274,7 @@ function threadView(id) {
     }
   });
   composer.querySelector('[data-image]').addEventListener('click', async () => {
-    const uploaded = await pickAndUpload({ multiple: false });
+    const uploaded = await pickCropAndUpload({ preset: 'post', multiple: false });
     uploaded.slice(0, 4 - media.length).forEach((f) => media.push({ url: f.url, alt: '' }));
     renderPreviews();
     syncSend();

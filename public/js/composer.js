@@ -2,7 +2,7 @@ import { api } from './api.js';
 import { icons } from './icons.js';
 import { acting } from './store.js';
 import { socketComposing } from './socket.js';
-import { pickAndUpload } from './upload.js';
+import { pickCropAndUpload } from './upload.js';
 import { now, relative, stamp, toLocalInput, fromLocalInput, describeOffset, offsetMs } from './time.js';
 import { avatarHTML, el, esc, errorToast, openModal, toast } from './ui.js';
 
@@ -255,7 +255,7 @@ export function createComposer({
     toast('Post time reset to the current moment');
   });
   wrap.querySelector('[data-image]').addEventListener('click', async () => {
-    const uploaded = await pickAndUpload({ multiple: true });
+    const uploaded = await pickCropAndUpload({ preset: 'post', multiple: true });
     uploaded.slice(0, 4 - media.length).forEach((f) => media.push({ url: f.url, alt: '' }));
     renderPreviews();
     refresh();

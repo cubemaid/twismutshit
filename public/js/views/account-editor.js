@@ -101,18 +101,26 @@ export function openAccountEditor(account = null, { onSaved = null } = {}) {
   syncPreviews();
 
   body.querySelector('[data-avatar-btn]').appendChild(
-    imageUploadButton('Upload avatar', (file) => {
-      avatarInput.value = file.url;
-      syncPreviews();
-      toast('Avatar uploaded');
-    })
+    imageUploadButton(
+      'Upload avatar',
+      (file) => {
+        avatarInput.value = file.url;
+        syncPreviews();
+        toast('Avatar uploaded');
+      },
+      { preset: 'square' }
+    )
   );
   body.querySelector('[data-banner-btn]').appendChild(
-    imageUploadButton('Upload banner', (file) => {
-      bannerInput.value = file.url;
-      syncPreviews();
-      toast('Banner uploaded');
-    })
+    imageUploadButton(
+      'Upload banner',
+      (file) => {
+        bannerInput.value = file.url;
+        syncPreviews();
+        toast('Banner uploaded');
+      },
+      { preset: 'header' }
+    )
   );
 
   const modal = openModal({ title: isNew ? 'New account' : `Edit @${a.handle}`, body, wide: true });

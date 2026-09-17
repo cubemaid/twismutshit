@@ -50,6 +50,11 @@ export const icons = {
   grid: s('<rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/>'),
   pause: s('<rect x="6.5" y="4.5" width="4" height="15" rx="1.5"/><rect x="13.5" y="4.5" width="4" height="15" rx="1.5"/>'),
   play: s('<path d="M7 4.5 19 12 7 19.5z"/>'),
+
+  /* phone status-bar decorations (filled, so they read at 12px) */
+  signal: `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="2" y="14" width="3.4" height="6" rx="1"/><rect x="7.2" y="10.5" width="3.4" height="9.5" rx="1"/><rect x="12.4" y="7" width="3.4" height="13" rx="1"/><rect x="17.6" y="3.5" width="3.4" height="16.5" rx="1"/></svg>`,
+  wifi: s('<path d="M3.6 9a12.6 12.6 0 0 1 16.8 0"/><path d="M7 12.4a7.6 7.6 0 0 1 10 0"/><path d="M10.3 15.7a3.2 3.2 0 0 1 3.4 0"/><circle cx="12" cy="19.2" r="1" fill="currentColor" stroke="none"/>', 'stroke-width="1.6"'),
+  battery: s('<rect x="2" y="7.5" width="17" height="9" rx="2.4"/><rect x="4.4" y="9.9" width="12.2" height="4.2" rx="1.2" fill="currentColor" stroke="none"/><path d="M21 11.2v1.6"/>', 'stroke-width="1.5"'),
 };
 
 export const badgeSvg = (kind = 'blue') => `

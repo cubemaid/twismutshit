@@ -233,8 +233,18 @@ export function timeline({
     repostWhere.push('0 = 1');
   }
 
-  if (filter === 'noreplies') postWhere.push('p.reply_to_id IS NULL');
-  if (filter === 'replies') postWhere.push('p.reply_to_id IS NOT NULL');
+  /* Comments belong in Replies, not in the main feeds or on a profile's Posts
+     tab. Search still looks through everything, and your own likes/bookmarks
+     still show what you saved. */
+  const repliesOnly = filter === 'replies';
+  const allowReplies = repliesOnly || Boolean(q) || type === 'likes' || type === 'bookmarks';
+  if (repliesOnly) {
+    postWhere.push('p.reply_to_id IS NOT NULL');
+  } else if (!allowReplies) {
+    postWhere.push('p.reply_to_id IS NULL');
+    repostWhere.push('p.reply_to_id IS NULL');
+  }
+
   if (filter === 'media') postWhere.push('EXISTS (SELECT 1 FROM post_media m WHERE m.post_id = p.id)');
   if (filter === 'verified') postWhere.push('EXISTS (SELECT 1 FROM accounts a WHERE a.id = p.author_id AND a.verified = 1)');
   if (q) {

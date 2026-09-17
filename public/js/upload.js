@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { icons } from './icons.js';
+import { PRESETS, openCropper } from './crop.js';
 import { el, esc, errorToast, toast } from './ui.js';
 
 /** POST files to the server, returns [{ url, alt, name }] */
@@ -59,14 +60,34 @@ export async function pickAndUpload(options) {
 }
 
 /**
+ * Pick images, crop each one to a preset shape, then upload.
+ * preset: 'post' | 'square' | 'header' (or a preset object)
+ */
+export async function pickCropAndUpload({ preset = 'post', multiple = false, allowOriginal = true } = {}) {
+  const files = await pickFiles({ multiple });
+  if (!files.length) return [];
+  const shape = typeof preset === 'string' ? PRESETS[preset] || PRESETS.post : preset;
+  const cropped = [];
+  for (let i = 0; i < files.length; i += 1) {
+    const result = await openCropper(files[i], { preset: shape, index: i, total: files.length, allowOriginal });
+    if (result === 'cancel' || result === null) break;
+    cropped.push(result);
+  }
+  if (!cropped.length) return [];
+  return uploadImages(cropped);
+}
+
+/**
  * A button that opens the picker, uploads, and hands back the uploaded files.
  * Used for avatars, banners and chat attachments.
  */
-export function imageUploadButton(label, onDone, { icon = 'image', cls = 'btn sm ghost' } = {}) {
+export function imageUploadButton(label, onDone, { icon = 'image', cls = 'btn sm ghost', preset = null } = {}) {
   const btn = el(`<button type="button" class="${cls}">${icons[icon]}<span>${esc(label)}</span></button>`);
   btn.addEventListener('click', async (e) => {
     e.preventDefault();
-    const uploaded = await pickAndUpload({ multiple: false });
+    const uploaded = preset
+      ? await pickCropAndUpload({ preset, multiple: false })
+      : await pickAndUpload({ multiple: false });
     if (uploaded.length) onDone(uploaded[0]);
   });
   return btn;

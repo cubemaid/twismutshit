@@ -1,7 +1,7 @@
 import { acting, emit, state } from '../store.js';
 import { icons } from '../icons.js';
 import { clockBanner, colHead, composingBar, openAccountMenu, openClockModal } from '../shell.js';
-import { chipRow, el } from '../ui.js';
+import { el } from '../ui.js';
 import { feedList } from './feed.js';
 
 const TABS = [
@@ -9,17 +9,9 @@ const TABS = [
   { key: 'all', label: 'Everything' },
 ];
 
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'noreplies', label: 'No replies' },
-  { key: 'media', label: 'With media' },
-  { key: 'verified', label: 'Verified' },
-];
-
 export function homeView() {
   const root = el('<div></div>');
   let tab = localStorage.getItem('chirper:homeTab') || 'following';
-  let filter = localStorage.getItem('chirper:homeFilter') || 'all';
   let feed = null;
 
   function build() {
@@ -62,15 +54,7 @@ export function homeView() {
 
     root.appendChild(composingBar('post'));
 
-    root.appendChild(
-      chipRow(FILTERS, filter, (key) => {
-        filter = key;
-        localStorage.setItem('chirper:homeFilter', key);
-        build();
-      })
-    );
-
-    feed = feedList(() => ({ type: tab, accountId: me?.id ?? '', filter }), {
+    feed = feedList(() => ({ type: tab, accountId: me?.id ?? '' }), {
       emptyTitle: tab === 'following' ? 'Your Following feed is quiet' : 'No posts yet',
       emptySub:
         tab === 'following'

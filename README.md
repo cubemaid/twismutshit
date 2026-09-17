@@ -31,6 +31,9 @@ as *just now*. Everything updates live for both of you at the same time.
 
 **Images**
 - Upload from your device anywhere: posts, chat messages, avatars and banners
+- Every upload goes through a **cropper** first — drag to reposition, slide to zoom, and pick a
+  preset shape: **Post** (16:9, 1280×720), **Square** (512×512, used for avatars) or
+  **Header** (3:1, 1500×500, used for banners). "Use original" skips the crop
 - Tap "Upload avatar" / "Upload banner" in the profile editor, or paste a URL instead
 - Photos in chats tap open full-screen
 - Uploaded files live in `data/uploads` and are only served to signed-in visitors
@@ -47,9 +50,22 @@ as *just now*. Everything updates live for both of you at the same time.
 **Feeds**
 - **Following** — only who you follow (plus you)
 - **Everything** — every account on the server
-- Filters: all / no replies / with media / verified
+- Replies and comments never appear in a feed or on a profile's Posts tab — they live on the
+  post itself and under that profile's **Replies** tab. Search still finds them, and your Likes
+  and Bookmarks still show whatever you saved
 - Infinite scroll with a "show N new posts" pill when the other writer posts while you're
   scrolled down
+
+**The status bar**
+- One slim, phone-shaped strip across the very top of the app, in place of a chunky header
+- **Tap it** to choose what it carries. Options: the acting character (tap to swap who you are
+  posting as), the shared clock (tap for the time machine), the section name, a Following /
+  Everything switcher, search, notifications and messages with their unread counts, a screenshot
+  mode toggle, and decorative signal / Wi-Fi / battery icons
+- Also toggles 24-hour time, and the arrangement is remembered per browser — you and your co-writer
+  can each set your own
+- A small dot next to the clock tells you at a glance whether the timeline is live (green),
+  shifted (amber) or frozen (blue)
 
 **Notifications**
 - Generated automatically for likes, reposts, follows, replies, quotes, mentions and DMs
@@ -74,11 +90,10 @@ as *just now*. Everything updates live for both of you at the same time.
 
 **Screenshot mode**
 - Press **S**, or use the mobile menu, Settings → Screenshots, or a post's ⋯ menu
-- Hides only what isn't Twitter — the time machine, "who's here", the filter chips, the Admin
-  link, the composer's clock button and the app-only badges — so what's left looks like a real
-  page
-- Three extra toggles: **Sidebar** (also hides the left nav and right column, leaving just the
-  posts), **Header** (hides the column title and tabs), **Stats** (hides the
+- Hides only what isn't Twitter — the time machine, "who's here", the Admin link, the
+  composer's clock button and the app-only badges — so what's left looks like a real page
+- Three extra toggles: **Sidebar** (also hides the left nav, the right column and the status bar,
+  leaving just the posts), **Header** (hides the column title and tabs), **Stats** (hides the
   reply/repost/like/bookmark row)
 - The little control bar only appears when you move the mouse to the bottom of the window, and
   fades on its own, so it never lands in the shot
@@ -95,10 +110,10 @@ as *just now*. Everything updates live for both of you at the same time.
 - Export the entire world to JSON, import it back
 
 **On phones**
-- The sidebar collapses into a slide-in drawer: tap the ☰ in the top bar for Bookmarks,
+- The sidebar collapses into a slide-in drawer: tap the ☰ in the status bar for Bookmarks,
   Profile, Settings and Admin
-- Bottom bar for Home / Explore / Notifications / Messages, avatar in the top bar for
-  switching characters
+- Bottom bar for Home / Explore / Notifications / Messages, and the character switcher lives in
+  the status bar
 - Everything else is the same — composer, time picker, DMs, notifications
 
 ---

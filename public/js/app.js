@@ -5,7 +5,8 @@ import { setClockState, startTicking } from './time.js';
 import { el, errorToast, openModal, toast, avatarHTML, esc } from './ui.js';
 import { openComposer, createComposer } from './composer.js';
 import { openAccountEditor } from './views/account-editor.js';
-import { renderMobileNav, renderMobileTopbar, renderPostFab, renderRail, renderSidebar, switchAccount, openClockModal } from './shell.js';
+import { renderMobileNav, renderPostFab, renderRail, renderSidebar, switchAccount, openClockModal } from './shell.js';
+import { renderStatusbar } from './statusbar.js';
 import { initScreenshotMode } from './screenshot.js';
 
 import { homeView } from './views/home.js';
@@ -118,7 +119,7 @@ let mainEl = null;
 let sidebarEl = null;
 let railEl = null;
 let mobileNavEl = null;
-let topbarEl = null;
+let statusbarEl = null;
 let currentView = null;
 
 function ensureShell() {
@@ -133,11 +134,17 @@ function ensureShell() {
   railEl = el('<div></div>');
   layout.append(sidebarEl, mainEl, railEl);
 
-  // The top bar has to come *before* the layout: it is position: sticky, so it
-  // only pins itself to the top of the viewport if it sits above the content.
-  topbarEl = renderMobileTopbar();
+  // The status bar has to come *before* the layout: it is position: sticky, so
+  // it only pins itself to the top of the viewport if it sits above the content.
+  statusbarEl = renderStatusbar(null);
   mobileNavEl = renderMobileNav('home');
-  app.append(topbarEl, layout, mobileNavEl, renderPostFab());
+  app.append(statusbarEl, layout, mobileNavEl, renderPostFab());
+}
+
+function paintStatusbar(route) {
+  const fresh = renderStatusbar(route);
+  statusbarEl.replaceWith(fresh);
+  statusbarEl = fresh;
 }
 
 function paintChrome(route, title) {
@@ -153,9 +160,7 @@ function paintChrome(route, title) {
   mobileNavEl.replaceWith(freshNav);
   mobileNavEl = freshNav;
 
-  const freshTop = renderMobileTopbar(title);
-  topbarEl.replaceWith(freshTop);
-  topbarEl = freshTop;
+  paintStatusbar(route);
 }
 
 async function renderRoute({ scroll = true } = {}) {
@@ -262,6 +267,12 @@ on('badges', () => {
   const freshNav = renderMobileNav(route.active);
   mobileNavEl.replaceWith(freshNav);
   mobileNavEl = freshNav;
+  paintStatusbar(route);
+});
+
+on('statusbar', () => {
+  if (!layout) return;
+  paintStatusbar(parseRoute());
 });
 
 on('settings', (settings) => {

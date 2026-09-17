@@ -310,9 +310,6 @@ const NAV = [
 export function renderSidebar(active) {
   const me = acting();
   const side = el(`<aside class="sidebar">
-    <div class="sidebar-top">
-      <button class="logo-btn" data-logo title="${esc(state.settings.siteName || 'Chirper')}">${icons.bird}</button>
-    </div>
     <nav class="nav"></nav>
   </aside>`);
   const nav = side.querySelector('.nav');
@@ -340,10 +337,6 @@ export function renderSidebar(active) {
   chip.addEventListener('click', () => openAccountMenu(chip));
   side.appendChild(chip);
   side.querySelector('[data-post]').addEventListener('click', () => emit('open-composer'));
-  side.querySelector('[data-logo]').addEventListener('click', () => {
-    location.hash = '/home';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
   return side;
 }
 
@@ -461,21 +454,6 @@ export function renderMobileNav(active) {
   menu.addEventListener('click', () => openMobileDrawer(active));
   nav.appendChild(menu);
   return nav;
-}
-
-export function renderMobileTopbar(title = '') {
-  const me = acting();
-  const bar = el(`<div class="mobile-topbar">
-    <button class="icon-btn" data-menu title="Menu">${icons.moreH}</button>
-    <button class="account-btn" data-acc>${avatarHTML(me, 'a32')}</button>
-    <div class="grow bold nowrap">${esc(title || state.settings.siteName || 'Chirper')}</div>
-    <button class="icon-btn" data-clock title="Time machine">${icons.clock}</button>
-  </div>`);
-  bar.querySelector('[data-menu]').addEventListener('click', () => openMobileDrawer());
-  bar.querySelector('[data-acc]').addEventListener('click', (e) => openAccountMenu(e.currentTarget));
-  bar.querySelector('[data-clock]').addEventListener('click', openClockModal);
-  bar.querySelector('.grow').addEventListener('click', () => route.go('/home'));
-  return bar;
 }
 
 /** The floating compose button - the only way to start a post on a phone. */
