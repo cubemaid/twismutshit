@@ -47,8 +47,9 @@ export function settingsView() {
       <div class="card-body">
         <button class="btn" data-shot>${icons.image} Turn on clean view</button>
         <div class="hint">
-          Hides the sidebar, right column, tabs, composer and every app-only badge so a post looks like a real
-          screenshot. The column header and the stats row can be hidden too. Press <b>S</b> any time to toggle it.
+          Hides the Chirper-only bits — time machine, who's here, filter chips, the Admin link and the
+          app badges — so what's left looks like a real Twitter page. Three extra toggles strip the
+          sidebar, the column header and the stats row. Press <b>S</b> any time to toggle it.
         </div>
       </div>
     </div>

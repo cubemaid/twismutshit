@@ -18,12 +18,22 @@ as *just now*. Everything updates live for both of you at the same time.
 - The right column shows who else is connected and which character they're using
 
 **Posts**
+- Compose from the floating **Post** button (bottom-right) or the sidebar's Post button — the
+  feed itself stays clean with no inline "what's happening" box
 - Text, up to 4 images, replies, threads, quotes, reposts
 - **Any timestamp you want** — post as "now", or backdate it to 3 April 2019 at 4:12 PM
 - Edit the text, the time, and even the engagement numbers of a post after the fact
 - Pin a post to a profile
 - Draft-proof composer with a live character ring (it warns past 280 but lets you write long
   posts, because fic)
+- The clock button next to the composer only appears while you're actually writing, so an
+  idle page stays clean
+
+**Images**
+- Upload from your device anywhere: posts, chat messages, avatars and banners
+- Tap "Upload avatar" / "Upload banner" in the profile editor, or paste a URL instead
+- Photos in chats tap open full-screen
+- Uploaded files live in `data/uploads` and are only served to signed-in visitors
 
 **The time machine**
 - One clock shared by both of you — it lives in the right column (and in the ☁/clock modal)
@@ -48,7 +58,11 @@ as *just now*. Everything updates live for both of you at the same time.
 - Tabs for All / Mentions / Verified, unread badges in the sidebar
 
 **Direct messages**
-- 1:1 chats and group chats
+- 1:1 chats and group chats, laid out like the real thing: a profile card at the top of the
+  conversation, centred "Today 9:38 PM" date separators, plain text lines (no chat bubbles)
+  with the sender's avatar once at the top of each run of messages, and "Sent" under your
+  last one
+- Send photos as well as text
 - Set the send time of any message, edit text, edit its timestamp, delete it
 - Live typing indicators ("Writer 2 is typing…")
 - Live delivery — messages appear instantly for the other person
@@ -59,18 +73,33 @@ as *just now*. Everything updates live for both of you at the same time.
 - Who to follow
 
 **Screenshot mode**
-- Press **S** (or the camera button in the bottom-right, or Settings → Screenshots)
-- Hides the sidebar, right column, tabs, composer and every app-only badge so a post looks
-  like a genuine screenshot
-- Extra toggles: hide the column header, hide the like/repost/bookmark row
-- The little control bar fades out on its own so it never lands in the shot
+- Press **S**, or use the mobile menu, Settings → Screenshots, or a post's ⋯ menu
+- Hides only what isn't Twitter — the time machine, "who's here", the filter chips, the Admin
+  link, the composer's clock button and the app-only badges — so what's left looks like a real
+  page
+- Three extra toggles: **Sidebar** (also hides the left nav and right column, leaving just the
+  posts), **Header** (hides the column title and tabs), **Stats** (hides the
+  reply/repost/like/bookmark row)
+- The little control bar only appears when you move the mouse to the bottom of the window, and
+  fades on its own, so it never lands in the shot
 
 **Admin**
 - Full account CRUD, act as anyone, delete anyone
-- Manual notification factory
+- Manual notification factory. Its **Clear all** button wipes notifications for *every* account,
+  not just the one selected in the dropdown
 - Trends CRUD
-- The time machine, plus resets (wipe posts / DMs / everything)
+- The time machine, plus resets: delete all messages / delete all posts / **wipe everything**
+- **Wipe everything** leaves a genuinely empty world — zero accounts, posts, DMs, notifications
+  and trends. Nothing is recreated afterwards, so the next visit asks you to make a new account.
+  (A brand-new install still seeds two starter characters once.)
 - Export the entire world to JSON, import it back
+
+**On phones**
+- The sidebar collapses into a slide-in drawer: tap the ☰ in the top bar for Bookmarks,
+  Profile, Settings and Admin
+- Bottom bar for Home / Explore / Notifications / Messages, avatar in the top bar for
+  switching characters
+- Everything else is the same — composer, time picker, DMs, notifications
 
 ---
 

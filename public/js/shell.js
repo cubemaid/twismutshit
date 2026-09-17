@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { icons, icon } from './icons.js';
+import { setShotMode } from './screenshot.js';
 import { acting, state, setNickname, nickname, emit, on } from './store.js';
 import { socketAct, socketId } from './socket.js';
 import {
@@ -266,6 +267,7 @@ export function openAccountMenu(anchor) {
     { label: 'Manage accounts', icon: 'sliders', onClick: () => route.go('/admin/accounts') },
     { sep: true },
     { label: `Nickname: ${nickname() || 'not set'}`, icon: 'at', onClick: openNicknameDialog },
+    { label: 'Settings', icon: 'settings', onClick: () => route.go('/settings') },
     ...(me ? [{ label: `Add a post as @${me.handle}`, icon: 'edit', onClick: () => emit('open-composer') }] : []),
     { sep: true },
     { label: 'Sign out', icon: 'logout', danger: true, onClick: async () => {
@@ -301,7 +303,8 @@ const NAV = [
   { key: 'messages', label: 'Messages', icon: 'mail', path: '/messages', badge: 'messages' },
   { key: 'bookmarks', label: 'Bookmarks', icon: 'bookmark', path: '/bookmarks' },
   { key: 'profile', label: 'Profile', icon: 'user', path: '/me' },
-  { key: 'admin', label: 'Admin', icon: 'sliders', path: '/admin' },
+  { key: 'settings', label: 'Settings', icon: 'settings', path: '/settings' },
+  { key: 'admin', label: 'Admin', icon: 'sliders', path: '/admin', appOnly: true },
 ];
 
 export function renderSidebar(active) {
@@ -313,9 +316,9 @@ export function renderSidebar(active) {
     <nav class="nav"></nav>
   </aside>`);
   const nav = side.querySelector('.nav');
-  NAV.forEach((item) => {
+  NAV.filter((item) => item.key !== 'settings').forEach((item) => {
     const count = item.badge ? state.badges[item.badge] : 0;
-    const node = el(`<a class="nav-item${active === item.key ? ' active' : ''}" href="#${item.path}">
+    const node = el(`<a class="nav-item${active === item.key ? ' active' : ''}${item.appOnly ? ' nav-apponly' : ''}" href="#${item.path}">
       <span class="ico">${icon(item.icon)}</span>
       <span class="label">${esc(item.label)}</span>
       ${count ? `<span class="nav-badge">${count > 99 ? '99+' : count}</span>` : ''}
@@ -358,7 +361,7 @@ export function renderRail() {
   /* who is here */
   const writers = state.presence || [];
   if (writers.length) {
-    const card = el('<div class="card"><div class="card-head sm">Who\'s here</div><div class="card-body" style="display:grid;gap:10px"></div></div>');
+    const card = el('<div class="card presence-card"><div class="card-head sm">Who\'s here</div><div class="card-body" style="display:grid;gap:10px"></div></div>');
     const bodyEl = card.querySelector('.card-body');
     writers.forEach((w) => {
       const acc = state.accounts.find((a) => a.id === w.accountId);
@@ -438,7 +441,7 @@ export function renderRail() {
 
   rail.insertAdjacentHTML(
     'beforeend',
-    `<div class="small faint">${esc(state.settings.siteName || 'Chirper')} · running on your own server · <a href="#/settings">settings</a></div>`
+    `<div class="small faint rail-footer">${esc(state.settings.siteName || 'Chirper')} · running on your own server · <a href="#/settings">settings</a></div>`
   );
   return rail;
 }
@@ -454,21 +457,123 @@ export function renderMobileNav(active) {
     </a>`);
     nav.appendChild(node);
   });
-  const more = el(`<a class="nav-item" href="#/settings"><span class="ico">${icons.more}</span></a>`);
-  nav.appendChild(more);
+  const menu = el(`<button class="nav-item${['bookmarks', 'profile', 'admin', 'settings'].includes(active) ? ' active' : ''}" data-drawer><span class="ico">${icons.more}</span></button>`);
+  menu.addEventListener('click', () => openMobileDrawer(active));
+  nav.appendChild(menu);
   return nav;
 }
 
 export function renderMobileTopbar(title = '') {
   const me = acting();
   const bar = el(`<div class="mobile-topbar">
+    <button class="icon-btn" data-menu title="Menu">${icons.moreH}</button>
     <button class="account-btn" data-acc>${avatarHTML(me, 'a32')}</button>
-    <div class="grow bold">${esc(title || state.settings.siteName || 'Chirper')}</div>
+    <div class="grow bold nowrap">${esc(title || state.settings.siteName || 'Chirper')}</div>
     <button class="icon-btn" data-clock title="Time machine">${icons.clock}</button>
-    <button class="icon-btn" data-search title="Search">${icons.search}</button>
   </div>`);
+  bar.querySelector('[data-menu]').addEventListener('click', () => openMobileDrawer());
   bar.querySelector('[data-acc]').addEventListener('click', (e) => openAccountMenu(e.currentTarget));
   bar.querySelector('[data-clock]').addEventListener('click', openClockModal);
-  bar.querySelector('[data-search]').addEventListener('click', () => route.go('/explore'));
+  bar.querySelector('.grow').addEventListener('click', () => route.go('/home'));
   return bar;
 }
+
+/** The floating compose button - the only way to start a post on a phone. */
+export function renderPostFab() {
+  const fab = el(`<button class="post-fab" data-fab title="New post (n)">${icons.edit}</button>`);
+  fab.addEventListener('click', () => emit('open-composer'));
+  return fab;
+}
+
+/* ------------------------------------------------------------------ *
+ * mobile drawer — the sidebar, for phones
+ * ------------------------------------------------------------------ */
+let drawerNode = null;
+
+export function closeMobileDrawer() {
+  drawerNode?.remove();
+  drawerNode = null;
+  document.documentElement.classList.remove('drawer-open');
+}
+
+export function openMobileDrawer(active = null) {
+  closeMobileDrawer();
+  const me = acting();
+  const sheet = el(`<div class="drawer-wrap">
+    <div class="drawer-overlay" data-overlay></div>
+    <aside class="drawer">
+      <div class="drawer-head">
+        <button class="logo-btn" data-logo>${icons.bird}</button>
+        <div class="grow bold">${esc(state.settings.siteName || 'Chirper')}</div>
+        <button class="icon-btn" data-close>${icons.close}</button>
+      </div>
+      <div class="drawer-body"></div>
+      <div class="drawer-foot"></div>
+    </aside>
+  </div>`);
+
+  const current = active ?? parseActiveFromHash();
+  const body = sheet.querySelector('.drawer-body');
+  NAV.forEach((item) => {
+    const count = item.badge ? state.badges[item.badge] : 0;
+    const row = el(`<a class="drawer-item${current === item.key ? ' active' : ''}" href="#${item.path}">
+      <span class="ico">${icon(item.icon)}</span>
+      <span class="grow">${esc(item.label)}</span>
+      ${count ? `<span class="nav-badge">${count > 99 ? '99+' : count}</span>` : ''}
+    </a>`);
+    row.addEventListener('click', () => closeMobileDrawer());
+    body.appendChild(row);
+  });
+
+  const shotRow = el(`<a class="drawer-item" href="#">
+    <span class="ico">${icons.image}</span>
+    <span class="grow">Screenshot mode</span>
+  </a>`);
+  shotRow.addEventListener('click', (e) => {
+    e.preventDefault();
+    closeMobileDrawer();
+    setShotMode(true);
+  });
+  body.appendChild(shotRow);
+
+  const foot = sheet.querySelector('.drawer-foot');
+  const post = el(`<button class="btn block" data-post>${esc('Post')}</button>`);
+  post.addEventListener('click', () => {
+    closeMobileDrawer();
+    emit('open-composer');
+  });
+  const chip = el(`<button class="account-chip">
+    ${avatarHTML(me, 'a40')}
+    <div class="who">
+      <div class="name">${esc(me ? me.displayName : 'Pick an account')}</div>
+      <div class="handle">${me ? '@' + esc(me.handle) : 'nobody selected'}</div>
+    </div>
+    <span class="dots">${icons.moreH}</span>
+  </button>`);
+  chip.addEventListener('click', (e) => openAccountMenu(e.currentTarget));
+  foot.append(post, chip);
+
+  sheet.querySelector('[data-overlay]').addEventListener('click', closeMobileDrawer);
+  sheet.querySelector('[data-close]').addEventListener('click', closeMobileDrawer);
+  sheet.querySelector('[data-logo]').addEventListener('click', () => {
+    closeMobileDrawer();
+    location.hash = '/home';
+  });
+
+  document.body.appendChild(sheet);
+  drawerNode = sheet;
+  document.documentElement.classList.add('drawer-open');
+  requestAnimationFrame(() => sheet.querySelector('.drawer').classList.add('open'));
+}
+
+function parseActiveFromHash() {
+  const seg = (location.hash.replace(/^#/, '').split('/')[1] || 'home').split('?')[0];
+  if (seg === 'u' || seg === 'me') return 'profile';
+  if (seg === 'p') return 'home';
+  if (seg === 'search') return 'explore';
+  return seg;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeMobileDrawer();
+});

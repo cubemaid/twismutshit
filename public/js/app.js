@@ -5,7 +5,7 @@ import { setClockState, startTicking } from './time.js';
 import { el, errorToast, openModal, toast, avatarHTML, esc } from './ui.js';
 import { openComposer, createComposer } from './composer.js';
 import { openAccountEditor } from './views/account-editor.js';
-import { renderMobileNav, renderMobileTopbar, renderRail, renderSidebar, switchAccount, openClockModal } from './shell.js';
+import { renderMobileNav, renderMobileTopbar, renderPostFab, renderRail, renderSidebar, switchAccount, openClockModal } from './shell.js';
 import { initScreenshotMode } from './screenshot.js';
 
 import { homeView } from './views/home.js';
@@ -76,11 +76,16 @@ function buildView(route) {
 }
 
 function pickAccountView() {
+  const anyAccounts = state.accounts.length > 0;
   const root = el(`<div class="empty">
-    <h3>Who are you posting as?</h3>
-    <div style="margin-bottom:16px">Pick a character and everything — feeds, DMs, notifications — follows that choice.</div>
+    <h3>${anyAccounts ? 'Who are you posting as?' : 'Welcome to an empty world'}</h3>
+    <div style="margin-bottom:16px">${
+      anyAccounts
+        ? 'Pick a character and everything — feeds, DMs, notifications — follows that choice.'
+        : 'There are no accounts yet. Make the first character and the timeline is yours.'
+    }</div>
     <div data-list style="max-width:360px;margin:0 auto;text-align:left"></div>
-    <div style="margin-top:16px"><button class="btn ghost" data-new>Create a new account</button></div>
+    <div style="margin-top:16px"><button class="btn" data-new>Create a new account</button></div>
   </div>`);
   const list = root.querySelector('[data-list]');
   state.accounts.forEach((acc) => {
@@ -127,11 +132,12 @@ function ensureShell() {
   sidebarEl = el('<div></div>');
   railEl = el('<div></div>');
   layout.append(sidebarEl, mainEl, railEl);
-  app.appendChild(layout);
 
+  // The top bar has to come *before* the layout: it is position: sticky, so it
+  // only pins itself to the top of the viewport if it sits above the content.
   topbarEl = renderMobileTopbar();
   mobileNavEl = renderMobileNav('home');
-  app.append(topbarEl, mobileNavEl);
+  app.append(topbarEl, layout, mobileNavEl, renderPostFab());
 }
 
 function paintChrome(route, title) {
@@ -159,6 +165,7 @@ async function renderRoute({ scroll = true } = {}) {
 
   if (route.name === 'me' && !acting()) {
     mainEl.innerHTML = '';
+    mainEl.className = 'main';
     const view = pickAccountView();
     currentView = view;
     mainEl.appendChild(view.element);
@@ -168,7 +175,10 @@ async function renderRoute({ scroll = true } = {}) {
   const view = buildView(route);
   currentView = view;
   mainEl.innerHTML = '';
+  mainEl.className = `main ${view.mainClass || ''}`.trim();
   mainEl.appendChild(view.element);
+  // used to keep floating controls out of a DM composer's way
+  document.documentElement.classList.toggle('dm-open', Boolean(route.name === 'messages' && route.params?.id));
 
   paintChrome(route, view.title?.() || '');
   if (scroll) window.scrollTo({ top: 0 });
@@ -286,12 +296,19 @@ on('compose-as', async ({ account, replyTo }) => {
       socketAct(session.actingAccountId);
       emit('session', session);
     }
-    const node = createComposer({ replyTo: replyTo || null, autoFocus: true, placeholder: `Post as @${account.handle}` });
-    openModal({
+    const modal = openModal({
       title: replyTo ? `Reply as @${account.handle}` : `Post as @${account.handle}`,
-      body: node,
-      onClose: () => node.composerApi?.destroy(),
+      body: '<div></div>',
+      onClose: () => modal.composerNode?.composerApi?.destroy(),
     });
+    const node = createComposer({
+      replyTo: replyTo || null,
+      autoFocus: true,
+      placeholder: `Post as @${account.handle}`,
+      onDone: () => modal.close(),
+    });
+    modal.composerNode = node;
+    modal.body.appendChild(node);
   } catch (err) {
     errorToast(err);
   }

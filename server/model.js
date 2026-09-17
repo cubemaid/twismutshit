@@ -399,6 +399,8 @@ export function conversationDTO(row, viewerId = null) {
     : 0;
 
   const others = decorated.filter((a) => a.id !== viewerId);
+  const lastDto = last ? messageDTO(last, viewerId) : null;
+  if (lastDto && !lastDto.text && lastDto.media?.length) lastDto.text = '📷 Photo';
   return {
     id: row.id,
     type: row.type,
@@ -411,9 +413,20 @@ export function conversationDTO(row, viewerId = null) {
         ? row.title || others.map((a) => a.displayName).join(', ') || 'Group'
         : others[0]?.displayName || decorated[0]?.displayName || 'Unknown',
     displayHandle: row.type === 'group' ? others.map((a) => '@' + a.handle).join(' ') : others[0] ? '@' + others[0].handle : '',
-    lastMessage: last ? messageDTO(last, viewerId) : null,
+    lastMessage: lastDto,
     unreadCount: unread,
   };
+}
+
+export function parseMedia(value) {
+  if (Array.isArray(value)) return value.filter((m) => m && m.url).slice(0, 4);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((m) => m && m.url).slice(0, 4) : [];
+  } catch {
+    return [];
+  }
 }
 
 export function messageDTO(row, viewerId = null) {
@@ -426,6 +439,7 @@ export function messageDTO(row, viewerId = null) {
     senderId: row.sender_id,
     sender: sender ? decorateAccount(sender, viewerId) : null,
     text: row.text,
+    media: parseMedia(row.media),
     createdAt: row.created_at,
     editedAt: row.edited_at || null,
     replyToId: row.reply_to_id || null,

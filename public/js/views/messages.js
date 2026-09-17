@@ -2,7 +2,8 @@ import { api } from '../api.js';
 import { icons } from '../icons.js';
 import { accountById, acting, on, state, setBadges } from '../store.js';
 import { socketTyping } from '../socket.js';
-import { dayLabel, now, relative, stamp, timeOfDay, toLocalInput, fromLocalInput } from '../time.js';
+import { pickAndUpload } from '../upload.js';
+import { dayLabel, fullDate, now, relative, stamp, timeOfDay, toLocalInput, fromLocalInput } from '../time.js';
 import {
   avatarHTML,
   el,
@@ -13,6 +14,7 @@ import {
   openMenu,
   openModal,
   confirmDialog,
+  openLightbox,
   pickAccount,
   toast,
   debounce,
@@ -181,6 +183,8 @@ export function openNewConversation() {
  * ------------------------------------------------------------------ */
 function threadView(id) {
   const root = el('<div></div>');
+  const thread = el('<div class="dm-thread"></div>');
+  root.appendChild(thread);
   let conv = null;
   let messages = [];
   const me = acting();
@@ -188,23 +192,59 @@ function threadView(id) {
   let typingNode = null;
 
   const head = colHead({ title: 'Message', backTo: '/messages', right: `<button class="icon-btn" data-more>${icons.moreH}</button>` });
-  root.appendChild(head);
+  thread.appendChild(head);
   head.querySelector('[data-more]').addEventListener('click', (e) => openConversationMenu(e, () => conv, load));
 
   const scroll = el('<div class="msg-list"></div>');
-  root.appendChild(scroll);
+  thread.appendChild(scroll);
+  // follow the newest message, but stop fighting the reader if they scroll up
+  let autoScroll = true;
+  const toBottom = () => {
+    if (autoScroll) scroll.scrollTop = scroll.scrollHeight;
+  };
+  scroll.addEventListener('scroll', () => {
+    autoScroll = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 60;
+  });
   typingNode = el('<div class="typing" style="display:none"></div>');
-  root.appendChild(typingNode);
+  thread.appendChild(typingNode);
 
   const composer = el(`<div class="dm-composer">
-    <textarea class="textarea" rows="1" placeholder="Start a new message" data-input style="min-height:44px;max-height:160px"></textarea>
+    <div class="dm-attach" data-attach style="display:none"></div>
+    <div class="grow" style="min-width:0">
+      <div class="media-preview" data-previews style="display:none"></div>
+      <textarea class="textarea" rows="1" placeholder="Message" data-input style="min-height:44px;max-height:160px"></textarea>
+    </div>
+    <button class="tool-btn" data-image title="Send a photo">${icons.image}</button>
     <button class="tool-btn" data-time title="Set the message time">${icons.clock}</button>
     <button class="btn" data-send disabled>Send</button>
   </div>`);
   const ta = composer.querySelector('[data-input]');
   const sendBtn = composer.querySelector('[data-send]');
   const timeBtn = composer.querySelector('[data-time]');
+  const previews = composer.querySelector('[data-previews]');
   let customTime = null;
+  let media = [];
+
+  const renderPreviews = () => {
+    previews.innerHTML = '';
+    media.forEach((m, i) => {
+      const item = el(`<div class="item"><img src="${esc(m.url)}" alt=""><button class="rm">${icons.close}</button></div>`);
+      item.querySelector('.rm').addEventListener('click', () => {
+        media.splice(i, 1);
+        renderPreviews();
+        syncSend();
+      });
+      previews.appendChild(item);
+    });
+    previews.className = `media-preview${media.length === 1 ? ' single' : ''}`;
+    previews.style.display = media.length ? 'grid' : 'none';
+  };
+
+  function syncSend() {
+    const writing = Boolean(ta.value.trim()) || media.length > 0;
+    sendBtn.disabled = !writing;
+    timeBtn.style.display = writing ? '' : 'none';
+  }
 
   function updateTimeChip() {
     if (customTime) {
@@ -217,16 +257,28 @@ function threadView(id) {
   }
 
   ta.addEventListener('input', () => {
-    sendBtn.disabled = !ta.value.trim();
+    syncSend();
     ta.style.height = 'auto';
     ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
     socketTyping(id, Boolean(ta.value.trim()));
+  });
+  ta.addEventListener('focus', syncSend);
+  ta.addEventListener('blur', () => {
+    socketTyping(id, false);
+    syncSend();
   });
   ta.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (!sendBtn.disabled) sendBtn.click();
     }
+  });
+  composer.querySelector('[data-image]').addEventListener('click', async () => {
+    const uploaded = await pickAndUpload({ multiple: false });
+    uploaded.slice(0, 4 - media.length).forEach((f) => media.push({ url: f.url, alt: '' }));
+    renderPreviews();
+    syncSend();
+    ta.focus();
   });
   timeBtn.addEventListener('click', async () => {
     const picked = await pickTime(customTime ?? now(), { title: 'When was this message sent?' });
@@ -243,47 +295,91 @@ function threadView(id) {
 
   sendBtn.addEventListener('click', async () => {
     const text = ta.value.trim();
-    if (!text) return;
+    if (!text && !media.length) return;
     sendBtn.disabled = true;
     try {
       const msg = await api(`/conversations/${id}/messages`, {
         method: 'POST',
-        body: { text, createdAt: customTime ? new Date(customTime).toISOString() : undefined },
+        body: {
+          text,
+          media,
+          createdAt: customTime ? new Date(customTime).toISOString() : undefined,
+        },
       });
       ta.value = '';
       ta.style.height = 'auto';
       customTime = null;
+      media = [];
+      renderPreviews();
       updateTimeChip();
       socketTyping(id, false);
+      syncSend();
       appendMessage(msg);
       markRead();
     } catch (err) {
       errorToast(err);
-      sendBtn.disabled = false;
+      syncSend();
     }
   });
 
   function appendMessage(msg) {
     if (messages.some((m) => m.id === msg.id)) return;
+    // your own message always comes into view; someone else's only follows
+    // along if you were already at the bottom
+    const mine = msg.senderId === acting()?.id;
     messages.push(msg);
     paint();
-    requestAnimationFrame(() => (scroll.scrollTop = scroll.scrollHeight));
+    if (mine) autoScroll = true;
+    requestAnimationFrame(toBottom);
   }
 
   function paint() {
     scroll.innerHTML = '';
-    let lastDay = null;
-    messages.forEach((m) => {
-      const day = new Date(m.createdAt).toDateString();
-      if (day !== lastDay) {
-        lastDay = day;
-        scroll.appendChild(el(`<div class="msg-day">${esc(dayLabel(m.createdAt))}</div>`));
-      }
-      scroll.appendChild(messageRow(m, () => load()));
-    });
     if (!messages.length) {
       scroll.appendChild(emptyState('No messages yet', 'Say something.'));
+      scroll.appendChild(introBlock());
+      return;
     }
+    scroll.appendChild(introBlock());
+    let lastDay = null;
+    let lastSender = null;
+    messages.forEach((m, i) => {
+      const day = new Date(m.createdAt).toDateString();
+      const newDay = day !== lastDay;
+      if (newDay) {
+        // Twitter-style centred separator: "Today 9:38 PM"
+        scroll.appendChild(el(`<div class="dm-day">${esc(dayLabel(m.createdAt))} ${esc(timeOfDay(m.createdAt))}</div>`));
+      }
+      // the avatar only appears once, at the top of a run from the same sender
+      const groupStart = newDay || m.senderId !== lastSender;
+      lastDay = day;
+      lastSender = m.senderId;
+      const isLast = i === messages.length - 1;
+      scroll.appendChild(messageRow(m, () => load(), { isLast, showAvatar: groupStart, groupStart }));
+    });
+    // images arrive after paint and change the height - keep following the end
+    scroll.querySelectorAll('img').forEach((img) => {
+      if (!img.complete) img.addEventListener('load', toBottom, { once: true });
+    });
+    requestAnimationFrame(toBottom);
+  }
+
+  /** the little profile card Twitter shows at the top of a conversation */
+  function introBlock() {
+    if (!conv) return el('<div></div>');
+    const other = conv.type === 'group' ? null : conv.participants.find((p) => p.id !== me?.id) || conv.participants[0];
+    const joined = other?.createdAt ? fullDate(other.createdAt) : null;
+    const block = el(`<div class="dm-intro">
+      ${avatarHTML(other, 'a64')}
+      <div class="dm-intro-name">${esc(conv.displayName)}</div>
+      <div class="dm-intro-handle">${esc(conv.displayHandle)}</div>
+      ${joined ? `<div class="dm-intro-joined">Joined ${esc(joined)}</div>` : ''}
+      ${other ? `<button class="btn ghost sm" data-view-profile>View profile</button>` : ''}
+    </div>`);
+    block.querySelector('[data-view-profile]')?.addEventListener('click', () => {
+      location.hash = `/u/${other.handle}`;
+    });
+    return block;
   }
 
   async function load() {
@@ -301,7 +397,8 @@ function threadView(id) {
       });
       fresh.querySelector('[data-more]').addEventListener('click', (e) => openConversationMenu(e, () => conv, load));
       h.replaceWith(fresh);
-      requestAnimationFrame(() => (scroll.scrollTop = scroll.scrollHeight));
+      autoScroll = true;
+      requestAnimationFrame(toBottom);
       markRead();
     } catch (err) {
       errorToast(err);
@@ -336,31 +433,49 @@ function threadView(id) {
     } else load();
   });
 
-  root.appendChild(composer);
+  thread.appendChild(composer);
   updateTimeChip();
+  syncSend();
   load();
   on('session', load);
   on('clock', () => paint());
 
-  return { element: root, refresh: load };
+  return { element: root, mainClass: 'dm-main', refresh: load };
 }
 
-function messageRow(msg, reload) {
+function messageRow(msg, reload, { isLast = false, showAvatar = true, groupStart = true } = {}) {
   const mine = msg.senderId === acting()?.id;
-  const row = el(`<div class="msg ${mine ? 'mine' : ''}" data-id="${msg.id}">
-    ${mine ? '' : avatarHTML(msg.sender, 'a32')}
-    <div style="max-width:78%">
-      ${msg.replyTo ? `<div class="small muted" style="padding:0 6px 3px">↩ ${esc(msg.replyTo.text.slice(0, 60))}</div>` : ''}
-      <div class="msg-bubble">${linkify(msg.text)}</div>
-      <div class="msg-meta">
-        <span data-rel="${msg.createdAt}">${relative(msg.createdAt)}</span>
-        ${msg.editedAt ? ' · edited' : ''}
-        ${!mine ? ` · ${esc(msg.sender?.displayName || '')}` : ''}
-      </div>
+  const avatarCell = mine
+    ? ''
+    : showAvatar
+      ? `<div class="dm-avatar">${avatarHTML(msg.sender, 'a32')}</div>`
+      : '<div class="dm-avatar dm-avatar-spacer"></div>';
+  const row = el(`<div class="dm-line${mine ? ' mine' : ''}${groupStart ? ' group-start' : ' group-cont'}" data-id="${msg.id}">
+    ${avatarCell}
+    <div class="dm-body">
+      ${
+        msg.replyTo
+          ? `<div class="dm-quote">
+               <div class="dm-quote-who">Replying to ${esc(msg.replyTo.senderId === acting()?.id ? 'yourself' : msg.sender?.displayName || 'a message')}</div>
+               <div class="dm-quote-text">${esc((msg.replyTo.text || 'Photo').slice(0, 90))}</div>
+             </div>`
+          : ''
+      }
+      ${msg.media?.length ? `<div class="dm-media">${msg.media.map((m) => `<img src="${esc(m.url)}" alt="${esc(m.alt || '')}" loading="lazy">`).join('')}</div>` : ''}
+      ${msg.text ? `<div class="dm-text">${linkify(msg.text)}</div>` : ''}
+      ${isLast && mine ? '<div class="dm-sent">Sent</div>' : ''}
+      ${msg.editedAt ? '<div class="dm-sent">Edited</div>' : ''}
     </div>
+    <div class="dm-time" title="${esc(stamp(msg.createdAt))}">${esc(timeOfDay(msg.createdAt))}</div>
   </div>`);
-  const bubble = row.querySelector('.msg-bubble');
-  bubble.addEventListener('contextmenu', (e) => {
+  row.querySelectorAll('.dm-media img').forEach((img) =>
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openLightbox(img.src);
+    })
+  );
+  const target = row.querySelector('.dm-text') || row.querySelector('.dm-media') || row.querySelector('.dm-body');
+  target?.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     openMenu(
       { getBoundingClientRect: () => new DOMRect(e.clientX, e.clientY, 0, 0) },

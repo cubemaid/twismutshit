@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { state, emit } from '../store.js';
+import { imageUploadButton } from '../upload.js';
 import { toLocalInput, fromLocalInput, now } from '../time.js';
 import { el, errorToast, esc, openModal, toast } from '../ui.js';
 
@@ -36,8 +37,22 @@ export function openAccountEditor(account = null, { onSaved = null } = {}) {
       <label class="field"><span>Website</span><input class="input" data-website value="${esc(a.website)}"></label>
     </div>
     <div class="grid-2">
-      <label class="field"><span>Avatar image URL</span><input class="input" data-avatar value="${esc(a.avatar)}" placeholder="https://… or /uploads/…"></label>
-      <label class="field"><span>Banner image URL</span><input class="input" data-banner value="${esc(a.banner)}"></label>
+      <div class="field">
+        <span>Avatar</span>
+        <div class="row" style="gap:10px;align-items:center">
+          <div class="avatar a48 upload-preview" data-avatar-preview></div>
+          <div data-avatar-btn></div>
+        </div>
+        <input class="input" data-avatar value="${esc(a.avatar)}" placeholder="https://… or /uploads/…" style="margin-top:8px">
+      </div>
+      <div class="field">
+        <span>Banner</span>
+        <div class="row" style="gap:10px;align-items:center">
+          <div class="upload-preview banner-preview" data-banner-preview></div>
+          <div data-banner-btn></div>
+        </div>
+        <input class="input" data-banner value="${esc(a.banner)}" placeholder="https://… or /uploads/…" style="margin-top:8px">
+      </div>
     </div>
     <div class="row" style="gap:14px;margin-bottom:12px;align-items:flex-start">
       <label class="checkbox"><input type="checkbox" data-verified ${a.verified ? 'checked' : ''}> Verified badge</label>
@@ -66,6 +81,39 @@ export function openAccountEditor(account = null, { onSaved = null } = {}) {
 
   body.querySelector('[data-badge]').value = a.badge || '';
   body.querySelector('[data-created]').value = toLocalInput(a.createdAt || now());
+
+  /* avatar + banner: upload from the device, or paste a URL */
+  const avatarInput = body.querySelector('[data-avatar]');
+  const bannerInput = body.querySelector('[data-banner]');
+  const avatarPreview = body.querySelector('[data-avatar-preview]');
+  const bannerPreview = body.querySelector('[data-banner-preview]');
+
+  const paintPreview = (preview, url, fallbackText = '') => {
+    preview.style.backgroundImage = url ? `url('${url}')` : '';
+    preview.textContent = url ? '' : fallbackText;
+  };
+  const syncPreviews = () => {
+    paintPreview(avatarPreview, avatarInput.value.trim(), (a.displayName || a.handle || '?').charAt(0).toUpperCase());
+    paintPreview(bannerPreview, bannerInput.value.trim(), '');
+  };
+  avatarInput.addEventListener('input', syncPreviews);
+  bannerInput.addEventListener('input', syncPreviews);
+  syncPreviews();
+
+  body.querySelector('[data-avatar-btn]').appendChild(
+    imageUploadButton('Upload avatar', (file) => {
+      avatarInput.value = file.url;
+      syncPreviews();
+      toast('Avatar uploaded');
+    })
+  );
+  body.querySelector('[data-banner-btn]').appendChild(
+    imageUploadButton('Upload banner', (file) => {
+      bannerInput.value = file.url;
+      syncPreviews();
+      toast('Banner uploaded');
+    })
+  );
 
   const modal = openModal({ title: isNew ? 'New account' : `Edit @${a.handle}`, body, wide: true });
   body.querySelector('[data-cancel]').addEventListener('click', () => modal.close());

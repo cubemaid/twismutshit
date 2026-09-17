@@ -332,6 +332,22 @@ export function debounce(fn, ms = 250) {
   };
 }
 
+/** Full-screen image viewer. */
+export function openLightbox(url) {
+  const box = el(`<div class="lightbox"><img src="${esc(url)}" alt=""></div>`);
+  const close = () => {
+    box.remove();
+    document.removeEventListener('keydown', onKey);
+  };
+  function onKey(e) {
+    if (e.key === 'Escape') close();
+  }
+  box.addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(box);
+  return { close };
+}
+
 /** Run `fn` once this node leaves the document (cleanup for intervals/listeners). */
 export function onDetach(node, fn) {
   const observer = new MutationObserver(() => {

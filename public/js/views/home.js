@@ -1,8 +1,7 @@
-import { acting } from '../store.js';
+import { acting, emit, state } from '../store.js';
 import { icons } from '../icons.js';
-import { clockBanner, colHead, composingBar, openClockModal } from '../shell.js';
-import { createComposer } from '../composer.js';
-import { chipRow, el, openModal, toast } from '../ui.js';
+import { clockBanner, colHead, composingBar, openAccountMenu, openClockModal } from '../shell.js';
+import { chipRow, el } from '../ui.js';
 import { feedList } from './feed.js';
 
 const TABS = [
@@ -43,21 +42,24 @@ export function homeView() {
     root.appendChild(clockBanner());
 
     if (tab === 'following' && !me) {
-      root.appendChild(
-        el(`<div class="empty">
-          <h3>Pick an account first</h3>
-          <div>Open the account button in the bottom-left corner and choose who you are posting as. Your Following feed depends on it.</div>
-        </div>`)
-      );
+      const anyAccounts = state.accounts.length > 0;
+      const card = el(`<div class="empty">
+        <h3>${anyAccounts ? 'Pick an account first' : 'No accounts yet'}</h3>
+        <div>${
+          anyAccounts
+            ? 'Open the account button in the bottom-left corner and choose who you are posting as. Your Following feed depends on it.'
+            : 'Your world is completely empty. Create your first character and start writing.'
+        }</div>
+        <div style="margin-top:16px"><button class="btn" data-create>${anyAccounts ? 'Choose an account' : 'Create an account'}</button></div>
+      </div>`);
+      card.querySelector('[data-create]').addEventListener('click', (e) => {
+        if (anyAccounts) openAccountMenu(e.currentTarget);
+        else emit('create-account');
+      });
+      root.appendChild(card);
       return;
     }
 
-    const composer = createComposer({
-      placeholder: me ? `What's happening, @${me.handle}?` : 'Pick an account to post',
-      compact: true,
-    });
-    if (!me) composer.querySelector('textarea').disabled = true;
-    root.appendChild(composer);
     root.appendChild(composingBar('post'));
 
     root.appendChild(
@@ -84,10 +86,4 @@ export function homeView() {
     element: root,
     refresh: () => feed?.refresh?.(),
   };
-}
-
-export function openHomeComposer() {
-  if (!acting()) return toast('Pick an account first', 'error');
-  const node = createComposer({ autoFocus: true });
-  return openModal({ title: 'New post', body: node, onClose: () => node.composerApi?.destroy() });
 }

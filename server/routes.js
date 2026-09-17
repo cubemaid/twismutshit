@@ -19,6 +19,7 @@ import {
   postRow,
   parseDateInput,
   normaliseHandle,
+  parseMedia,
   pushNotification,
   notificationDTO,
   mentionHandles,
@@ -580,10 +581,17 @@ api.post('/notifications/read', requireAuth, (req, res) => {
 });
 
 api.post('/notifications/clear', requireAuth, (req, res) => {
-  const accountId = Number(req.body?.accountId) || req.auth.actingAccountId;
-  db.prepare('DELETE FROM notifications WHERE account_id = ?').run(accountId);
-  broadcast('notification', { action: 'clear', accountId });
-  res.json({ ok: true });
+  const wipeEverything = Boolean(req.body?.all);
+  if (wipeEverything) {
+    db.prepare('DELETE FROM notifications').run();
+  } else {
+    db.prepare('DELETE FROM notifications WHERE account_id = ?').run(
+      Number(req.body?.accountId) || req.auth.actingAccountId
+    );
+  }
+  const left = db.prepare('SELECT COUNT(*) n FROM notifications').get().n;
+  broadcast('notification', { action: 'clear', all: wipeEverything });
+  res.json({ ok: true, remaining: left });
 });
 
 /* ------------------------------------------------------------------ *
@@ -721,14 +729,15 @@ api.post('/conversations/:id/messages', requireAuth, (req, res) => {
   if (!isParticipant(id, as)) return bad(res, 'You are not in this conversation', 403);
   const body = req.body || {};
   const text = String(body.text ?? '');
-  if (!text.trim()) return bad(res, 'Message is empty');
+  const media = parseMedia(body.media);
+  if (!text.trim() && !media.length) return bad(res, 'Message is empty');
   const at = parseDateInput(body.createdAt, clockState().now);
   const info = db
     .prepare(
-      `INSERT INTO messages (conversation_id, sender_id, text, created_at, reply_to_id, real_created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
+      `INSERT INTO messages (conversation_id, sender_id, text, created_at, reply_to_id, media, real_created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(id, as, text, at, body.replyToId ? Number(body.replyToId) : null, Date.now());
+    .run(id, as, text, at, body.replyToId ? Number(body.replyToId) : null, JSON.stringify(media), Date.now());
   const msgId = info.lastInsertRowid;
   db.prepare(
     `INSERT INTO conversation_reads (conversation_id, account_id, last_read_id) VALUES (?, ?, ?)
@@ -764,6 +773,7 @@ api.patch('/messages/:id', requireAuth, (req, res) => {
     fields.text = String(body.text);
     fields.edited_at = Date.now();
   }
+  if (body.media !== undefined) fields.media = JSON.stringify(parseMedia(body.media));
   if (body.createdAt !== undefined) fields.created_at = parseDateInput(body.createdAt, row.created_at);
   const keys = Object.keys(fields);
   if (keys.length) db.prepare(`UPDATE messages SET ${keys.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`).run(...keys.map((k) => fields[k]), id);
@@ -941,7 +951,14 @@ api.post('/admin/reset', requireAuth, (req, res) => {
     }
     db.prepare("DELETE FROM sqlite_sequence WHERE name <> 'settings'").run();
   })();
-  if (scope === 'all') seedIfEmpty();
+  // deliberately no re-seed: "wipe everything" means zero rows, including
+  // accounts, so you start from a genuinely blank world.
   broadcast('world', { action: 'reset', scope });
-  res.json({ ok: true });
+  const left = {
+    accounts: db.prepare('SELECT COUNT(*) n FROM accounts').get().n,
+    posts: db.prepare('SELECT COUNT(*) n FROM posts').get().n,
+    notifications: db.prepare('SELECT COUNT(*) n FROM notifications').get().n,
+    messages: db.prepare('SELECT COUNT(*) n FROM messages').get().n,
+  };
+  res.json({ ok: true, left });
 });

@@ -2,6 +2,7 @@ import { api } from './api.js';
 import { icons } from './icons.js';
 import { acting } from './store.js';
 import { socketComposing } from './socket.js';
+import { pickAndUpload } from './upload.js';
 import { now, relative, stamp, toLocalInput, fromLocalInput, describeOffset, offsetMs } from './time.js';
 import { avatarHTML, el, esc, errorToast, openModal, toast } from './ui.js';
 
@@ -115,7 +116,7 @@ export function openTimePicker(currentMs, { title = 'Choose when this was posted
 /* ------------------------------------------------------------------ *
  * media picker
  * ------------------------------------------------------------------ */
-function mediaPicker(media, previews, inputEl) {
+function mediaPicker(media, previews) {
   const render = () => {
     previews.innerHTML = '';
     media.forEach((m, i) => {
@@ -133,20 +134,6 @@ function mediaPicker(media, previews, inputEl) {
     previews.className = `media-preview${media.length === 1 ? ' single' : ''}`;
     previews.style.display = media.length ? 'grid' : 'none';
   };
-  inputEl.addEventListener('change', async () => {
-    const files = [...(inputEl.files || [])].slice(0, 4 - media.length);
-    inputEl.value = '';
-    if (!files.length) return;
-    const fd = new FormData();
-    files.forEach((f) => fd.append('files', f));
-    try {
-      const res = await api('/upload', { method: 'POST', formData: fd });
-      res.files.forEach((f) => media.push({ url: f.url, alt: '' }));
-      render();
-    } catch (err) {
-      errorToast(err);
-    }
-  });
   render();
   return render;
 }
@@ -179,7 +166,6 @@ export function createComposer({
       <div class="composer-tools">
         <button class="tool-btn" data-image title="Add photos">${icons.image}</button>
         <button class="tool-btn" data-time title="Set the post time">${icons.clock}</button>
-        <input type="file" accept="image/*" multiple hidden data-file>
         <div class="grow"></div>
         <svg class="ring" viewBox="0 0 26 26">
           <circle class="bg" cx="13" cy="13" r="11"></circle>
@@ -195,8 +181,7 @@ export function createComposer({
   const ring = wrap.querySelector('.ring .fg');
   const timeBtn = wrap.querySelector('[data-time]');
   const previews = wrap.querySelector('.media-preview');
-  const fileInput = wrap.querySelector('[data-file]');
-  const renderPreviews = mediaPicker(media, previews, fileInput);
+  const renderPreviews = mediaPicker(media, previews);
 
   ta.value = initialText;
   const CIRC = 69.1;
@@ -224,6 +209,9 @@ export function createComposer({
     ring.style.strokeDashoffset = String(CIRC * (1 - pct));
     ring.parentElement.classList.toggle('over', len > MAX_SOFT);
     submit.disabled = !ta.value.trim() && !media.length;
+    // the time control is clutter until you are actually writing something
+    const writing = Boolean(ta.value.trim()) || document.activeElement === ta || customTime;
+    timeBtn.style.display = writing ? '' : 'none';
     autosize();
   }
 
@@ -235,11 +223,13 @@ export function createComposer({
       socketComposing(true);
     }
   });
+  ta.addEventListener('focus', refresh);
   ta.addEventListener('blur', () => {
     if (composingSent) {
       composingSent = false;
       socketComposing(false);
     }
+    refresh();
   });
   ta.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -254,15 +244,22 @@ export function createComposer({
       customTime = true;
       timeValue = picked;
       updateTimeChip();
+      refresh();
     }
   });
   timeBtn.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     customTime = false;
     updateTimeChip();
+    refresh();
     toast('Post time reset to the current moment');
   });
-  wrap.querySelector('[data-image]').addEventListener('click', () => fileInput.click());
+  wrap.querySelector('[data-image]').addEventListener('click', async () => {
+    const uploaded = await pickAndUpload({ multiple: true });
+    uploaded.slice(0, 4 - media.length).forEach((f) => media.push({ url: f.url, alt: '' }));
+    renderPreviews();
+    refresh();
+  });
 
   submit.addEventListener('click', async () => {
     const text = ta.value;
@@ -321,12 +318,14 @@ export function createComposer({
 }
 
 export function openComposer(opts = {}) {
-  const node = createComposer({ ...opts, autoFocus: true });
   const modal = openModal({
     title: opts.editPost ? 'Edit post' : opts.quoteOf ? 'Quote post' : opts.replyTo ? 'Reply' : 'New post',
-    body: node,
-    onClose: () => node.composerApi?.destroy(),
+    body: '<div></div>',
+    onClose: () => modal.composerNode?.composerApi?.destroy(),
   });
+  const node = createComposer({ ...opts, autoFocus: true, onDone: () => modal.close() });
+  modal.composerNode = node;
+  modal.body.appendChild(node);
   return modal;
 }
 
@@ -344,10 +343,13 @@ export function openEditComposer(post) {
 
 /** quick helper used by the admin screens to post as someone else */
 export function openComposerAs(account, opts = {}) {
-  const node = createComposer({ ...opts, autoFocus: true });
-  return openModal({
+  const modal = openModal({
     title: `Post as @${account.handle}`,
-    body: node,
-    onClose: () => node.composerApi?.destroy(),
+    body: '<div></div>',
+    onClose: () => modal.composerNode?.composerApi?.destroy(),
   });
+  const node = createComposer({ ...opts, autoFocus: true, onDone: () => modal.close() });
+  modal.composerNode = node;
+  modal.body.appendChild(node);
+  return modal;
 }

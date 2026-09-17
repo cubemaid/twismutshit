@@ -24,7 +24,17 @@ app.use(cookieParser());
 app.use(authContext);
 
 app.use('/api', api);
-app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', fallthrough: true }));
+// uploaded images are private: your browser sends the login cookie with every
+// <img> request, so this works transparently while keeping the files off the
+// open internet.
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    if (!req.auth?.authenticated) return res.status(401).json({ error: 'Not signed in' });
+    next();
+  },
+  express.static(UPLOAD_DIR, { maxAge: '30d', fallthrough: true })
+);
 // max-age 0 + etag: the browser revalidates on every load, so a `git pull`
 // on the VPS is picked up immediately instead of an hour later.
 app.use(express.static(PUBLIC_DIR, { maxAge: 0, etag: true, lastModified: true }));

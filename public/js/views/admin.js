@@ -199,9 +199,15 @@ function renderNotifications(body) {
   });
   wrap.querySelector('[data-new]').addEventListener('click', () => openNotificationEditor(null, accountId, load));
   wrap.querySelector('[data-clear]').addEventListener('click', async () => {
-    if (!(await confirmDialog({ title: 'Clear every notification for this account?', confirmLabel: 'Clear' }))) return;
-    await api('/notifications/clear', { method: 'POST', body: { accountId } });
-    load();
+    const ok = await confirmDialog({
+      title: 'Clear every notification?',
+      message: 'This deletes the notifications of every account, not just the one selected above. There is no undo.',
+      confirmLabel: 'Clear all',
+    });
+    if (!ok) return;
+    const res = await api('/notifications/clear', { method: 'POST', body: { all: true } });
+    await load();
+    toast(res?.remaining === 0 ? 'All notifications cleared' : `${res?.remaining ?? 0} notifications left`);
   });
 
   load();
@@ -298,7 +304,12 @@ function renderWorld(body) {
         <div class="row">
           <button class="btn ghost" data-reset-dms>Delete all messages</button>
           <button class="btn ghost" data-reset-posts>Delete all posts</button>
-          <button class="btn danger" data-reset-all>Reset the whole world</button>
+          <button class="btn danger" data-reset-all>Wipe everything</button>
+        </div>
+        <div class="hint">
+          <b>Wipe everything</b> leaves the world completely empty — zero accounts, posts, DMs,
+          notifications and trends. Nothing is recreated afterwards, so you will be asked to make
+          a new account the next time you open the app. The clock and site settings are kept.
         </div>
       </div>
     </div>
@@ -331,12 +342,16 @@ async function doReset(scope) {
   const labels = { dms: 'all messages', posts: 'all posts', all: 'everything' };
   if (!(await confirmDialog({
     title: `Delete ${labels[scope]}?`,
-    message: scope === 'all' ? 'Accounts, posts, DMs, notifications and trends will all be erased. Export a backup first!' : 'This cannot be undone.',
-    confirmLabel: 'Delete',
+    message:
+      scope === 'all'
+        ? 'Every account, post, DM, notification and trend is erased and nothing is recreated. Export a backup first!'
+        : 'This cannot be undone.',
+    confirmLabel: scope === 'all' ? 'Wipe everything' : 'Delete',
   }))) return;
-  await api('/admin/reset', { method: 'POST', body: { scope } });
-  toast('Done — reloading');
-  setTimeout(() => location.reload(), 600);
+  const res = await api('/admin/reset', { method: 'POST', body: { scope } });
+  const left = res?.left;
+  toast(left ? `Wiped — ${left.accounts} accounts, ${left.posts} posts left` : 'Done — reloading');
+  setTimeout(() => location.reload(), 900);
 }
 
 /* ------------------------------------------------------------------ *

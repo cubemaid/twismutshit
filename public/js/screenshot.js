@@ -2,71 +2,88 @@ import { icons } from './icons.js';
 import { el, openModal } from './ui.js';
 
 /**
- * "Clean view" — strips the app chrome so a post (or a profile) can be
- * screenshotted and passed off as the real thing.
+ * "Clean view" — hides the Chirper-only furniture (time machine, who's-here,
+ * admin, filter chips, app badges) so a post looks like a real screenshot.
+ * The optional toggles strip more if you want them gone.
  *
- * Press `S` or the camera button to toggle. The little control bar fades away
- * on its own so it never ends up in the shot.
+ * Press `S`, the camera button, or the post ⋯ menu to toggle.
  */
 let active = false;
 let bar = null;
-let fadeTimer = null;
+let hideTimer = null;
 
-function wake() {
+/** the bar only lives near the bottom edge of the screen */
+function show() {
   if (!active || !bar) return;
   const node = bar;
   node.classList.add('visible');
-  clearTimeout(fadeTimer);
-  fadeTimer = setTimeout(() => node?.classList.remove('visible'), 2200);
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => node.classList.remove('visible'), 2400);
+}
+
+function hideSoon() {
+  if (!bar) return;
+  const node = bar;
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => node.classList.remove('visible'), 500);
 }
 
 function setFlag(name, on) {
   document.documentElement.classList.toggle(name, on);
-  const btn = bar?.querySelector(`[data-flag="${name}"]`);
-  btn?.classList.toggle('on', on);
-  wake();
+  bar?.querySelector(`[data-flag="${name}"]`)?.classList.toggle('on', on);
+  show();
 }
+
+const FLAGS = [
+  ['hide-chrome', 'Sidebar'],
+  ['hide-head', 'Header'],
+  ['hide-stats', 'Stats'],
+];
 
 export function isShotMode() {
   return active;
 }
 
 export function setShotMode(on) {
+  if (on === active) return;
   active = on;
   document.documentElement.classList.toggle('shot', on);
+
   if (!on) {
-    clearTimeout(fadeTimer);
-    document.documentElement.classList.remove('hide-head', 'hide-stats');
+    clearTimeout(hideTimer);
+    for (const [flag] of FLAGS) document.documentElement.classList.remove(flag);
     bar?.remove();
     bar = null;
-  } else {
-    bar = el(`<div class="shot-bar">
-      <span class="label">${'Screenshot mode'}</span>
-      <button data-flag="hide-head">Header</button>
-      <button data-flag="hide-stats">Stats</button>
-      <button data-exit>Exit (S)</button>
-    </div>`);
-    bar.querySelector('[data-flag="hide-head"]').addEventListener('click', () => {
-      setFlag('hide-head', !document.documentElement.classList.contains('hide-head'));
-    });
-    bar.querySelector('[data-flag="hide-stats"]').addEventListener('click', () => {
-      setFlag('hide-stats', !document.documentElement.classList.contains('hide-stats'));
-    });
-    bar.querySelector('[data-exit]').addEventListener('click', () => setShotMode(false));
-    document.body.appendChild(bar);
-    wake();
+    return;
   }
+
+  bar = el(`<div class="shot-bar">
+    <span class="label">Screenshot mode</span>
+    ${FLAGS.map(([flag, label]) => `<button data-flag="${flag}">${label}</button>`).join('')}
+    <button data-exit>Exit (S)</button>
+  </div>`);
+  bar.querySelectorAll('[data-flag]').forEach((btn) =>
+    btn.addEventListener('click', () =>
+      setFlag(btn.dataset.flag, !document.documentElement.classList.contains(btn.dataset.flag))
+    )
+  );
+  bar.querySelector('[data-exit]').addEventListener('click', () => setShotMode(false));
+  bar.addEventListener('mouseenter', show);
+  document.body.appendChild(bar);
+  show();
 }
 
 export function initScreenshotMode() {
-  const toggle = el(`<button class="shot-toggle" title="Clean view for screenshots (S)">${icons.image}</button>`);
-  toggle.addEventListener('click', () => {
-    setShotMode(true);
-    // the toggle itself is hidden while active, so nothing else to do
-  });
-  document.body.appendChild(toggle);
+  // Screenshot mode is reached from the drawer, Settings, a post's ⋯ menu or
+  // the S key - no floating button, that spot belongs to the Post FAB.
+  const onPointerMove = (e) => {
+    if (!active || !bar) return;
+    if (window.innerHeight - e.clientY < 130) show();
+    else hideSoon();
+  };
+  document.addEventListener('mousemove', onPointerMove);
+  document.addEventListener('touchstart', () => show(), { passive: true });
 
-  document.addEventListener('mousemove', wake);
   document.addEventListener('keydown', (e) => {
     const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -79,16 +96,16 @@ export function initScreenshotMode() {
   });
 }
 
-/** small helper used from the "more" menus */
 export function openShotHelp() {
   const body = el(`<div>
-    <p style="margin-top:0">Screenshot mode hides the sidebar, the right column, tabs, the composer and every
-    app-only badge, leaving just the posts — so your characters' posts look like real tweets.</p>
+    <p style="margin-top:0">Screenshot mode hides the Chirper-only bits — the time machine, who's here,
+    the filter chips, the Admin link and the app badges — so what's left looks like a real Twitter page.</p>
     <ul class="muted small" style="padding-left:18px;line-height:1.7">
-      <li>Press <b>S</b> (or the camera button) to turn it on and off.</li>
-      <li><b>Header</b> hides the column title and tabs too.</li>
+      <li>Press <b>S</b>, or use the menu / Settings → Screenshots, to turn it on and off.</li>
+      <li><b>Sidebar</b> also hides the left nav and the right column, leaving just the posts.</li>
+      <li><b>Header</b> hides the column title and tabs.</li>
       <li><b>Stats</b> hides the reply / repost / like / bookmark row.</li>
-      <li>The little control bar fades out on its own after a couple of seconds, so it won't be in your shot.</li>
+      <li>The control bar only appears when you move the mouse to the bottom of the window.</li>
     </ul>
     <div class="row" style="justify-content:flex-end"><button class="btn" data-go>Try it</button></div>
   </div>`);

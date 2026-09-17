@@ -154,6 +154,20 @@ CREATE TABLE IF NOT EXISTS conversation_reads (
 `);
 
 /* ------------------------------------------------------------------ *
+ * Tiny migrations — CREATE TABLE IF NOT EXISTS won't add columns to a
+ * database that already exists, so new columns go here.
+ * ------------------------------------------------------------------ */
+export function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (cols.some((c) => c.name === column)) return false;
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  console.log(`[db] added ${table}.${column}`);
+  return true;
+}
+
+ensureColumn('messages', 'media', "TEXT NOT NULL DEFAULT '[]'");
+
+/* ------------------------------------------------------------------ *
  * Full text search (best effort - falls back to LIKE if unavailable)
  * ------------------------------------------------------------------ */
 export let hasFts = false;
@@ -190,6 +204,8 @@ export const DEFAULT_SETTINGS = {
   read_receipts: '1',
   theme: 'dim',
   welcome_note: 'Two writers. One timeline. Go make drama.',
+  // flips to 1 the first time we seed, so a deliberate wipe stays wiped
+  seeded_once: '0',
 };
 
 const insertSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
@@ -219,9 +235,18 @@ export function bool(value) {
 /* ------------------------------------------------------------------ *
  * First run seed so the app is never empty
  * ------------------------------------------------------------------ */
+/**
+ * Seeds the two starter characters on a brand-new database only.
+ * Once that has happened the flag stays set, so "wipe everything" leaves you
+ * with genuinely zero accounts instead of quietly recreating them.
+ */
 export function seedIfEmpty() {
+  if (getSetting('seeded_once') === '1') return false;
   const count = db.prepare('SELECT COUNT(*) AS n FROM accounts').get().n;
-  if (count > 0) return false;
+  if (count > 0) {
+    setSetting('seeded_once', '1');
+    return false;
+  }
 
   const insertAccount = db.prepare(`
     INSERT INTO accounts (handle, display_name, bio, avatar, banner, location, website,
@@ -261,5 +286,6 @@ export function seedIfEmpty() {
     );
   })();
 
+  setSetting('seeded_once', '1');
   return true;
 }
