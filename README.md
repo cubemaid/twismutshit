@@ -123,6 +123,12 @@ as *just now*. Everything updates live for both of you at the same time.
   and trends. Nothing is recreated afterwards, so the next visit asks you to make a new account.
   (A brand-new install still seeds two starter characters once.)
 - Export the entire world to JSON, import it back
+- **Export the images separately as a `.zip`** (Admin → Data → Images) and restore that too — the
+  JSON carries the paths, the zip carries the bytes, so two downloads bring a world back complete,
+  pictures included. Restore the JSON first, then the zip; existing files are only overwritten
+  when the name matches, so it is safe to re-run
+- A stored-images report sits right there as well: how many files are on disk, how much space they
+  use, and any image the database wants that is missing (or any file nothing uses any more)
 
 **On phones**
 - The sidebar collapses into a slide-in drawer: tap the ☰ in the status bar for Bookmarks,
@@ -212,7 +218,13 @@ To move a world between machines, copy **both** the database and the uploads —
 other is exactly what makes every image on the site break:
 
 ```bash
+# whole folder (simplest, and the only sane option for a huge image library)
 tar czf chirper-world.tgz -C chirper data
+
+# or, from the web UI: Admin -> Data
+#   1. Download a backup            (JSON: accounts, posts, DMs, everything)
+#   2. Download images (.zip)       (the picture files themselves)
+# then on the other machine: Restore from a backup, followed by Restore images from a .zip
 ```
 
 ### Without Docker

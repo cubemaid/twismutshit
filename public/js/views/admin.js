@@ -377,6 +377,25 @@ function renderData(body) {
       </div>
     </div>
 
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-head sm">${icons.image} Images</div>
+      <div class="card-body">
+        <p class="muted small" style="margin-top:0">
+          The backup above holds the paths — this holds the pictures themselves. Download both and a
+          restore is complete: every post, avatar and DM photo comes back attached.
+        </p>
+        <div class="row">
+          <a class="btn" href="/api/export/media">${icons.download} Download images (.zip)</a>
+          <button class="btn ghost" data-media-restore>${icons.upload} Restore images from a .zip</button>
+        </div>
+        <div class="hint">
+          Restoring only writes files back into <code>uploads/</code> — nothing is deleted or
+          overwritten unless the name matches. Restore the JSON first if the world is empty.
+        </div>
+        <input type="file" accept=".zip,application/zip" hidden data-zip>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-head sm">${icons.warning} Reset</div>
       <div class="card-body">
@@ -405,6 +424,26 @@ function renderData(body) {
   wrap.querySelector('[data-reset-dms]').addEventListener('click', () => doReset('dms'));
   wrap.querySelector('[data-reset-posts]').addEventListener('click', () => doReset('posts'));
   wrap.querySelector('[data-reset-all]').addEventListener('click', () => doReset('all'));
+
+  const zip = wrap.querySelector('[data-zip]');
+  wrap.querySelector('[data-media-restore]').addEventListener('click', () => zip.click());
+  zip.addEventListener('change', async () => {
+    const f = zip.files?.[0];
+    if (!f) return;
+    const form = new FormData();
+    form.append('file', f);
+    try {
+      const r = await api('/export/media', { method: 'POST', formData: form });
+      toast(`${r.written} image${r.written === 1 ? '' : 's'} restored${r.skipped ? `, ${r.skipped} skipped` : ''}`);
+      loadStorage(wrap.querySelector('[data-storage]'));
+      emit('rerender');
+    } catch (err) {
+      errorToast(err);
+    } finally {
+      zip.value = '';
+    }
+  });
+
   body.appendChild(wrap);
   loadStorage(wrap.querySelector('[data-storage]'));
 }

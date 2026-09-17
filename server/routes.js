@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 
 import { db, setSetting, seedIfEmpty } from './db.js';
-import { UPLOAD_DIR, MAX_UPLOAD_BYTES } from './config.js';
+import { UPLOAD_DIR, DATA_DIR, MAX_UPLOAD_BYTES } from './config.js';
+import { makeZip, readZip } from './zip.js';
 import { checkPassword, setAuthCookie, clearAuthCookie, requireAuth } from './auth.js';
 import { clockState, setClock } from './clock.js';
 import {
@@ -963,6 +964,81 @@ api.get('/export', requireAuth, (_req, res) => {
   for (const t of TABLES) dump.tables[t] = db.prepare(`SELECT * FROM ${t}`).all();
   res.setHeader('Content-Disposition', `attachment; filename="chirper-export-${Date.now()}.json"`);
   res.json(dump);
+});
+
+/* ------------------------------------------------------------------ *
+ * images: the other half of a backup
+ *
+ * The JSON export carries the paths ("/uploads/xyz.jpg"), this zip carries
+ * the bytes. Restore both and every post has its pictures again.
+ * ------------------------------------------------------------------ */
+function imageFiles() {
+  let names = [];
+  try {
+    names = fs.readdirSync(UPLOAD_DIR);
+  } catch {
+    /* no uploads yet */
+  }
+  const files = [];
+  for (const name of names) {
+    try {
+      const full = path.join(UPLOAD_DIR, name);
+      if (!fs.statSync(full).isFile()) continue;
+      files.push({ name, data: fs.readFileSync(full) });
+    } catch {
+      /* unreadable — skip it */
+    }
+  }
+  return files;
+}
+
+api.get('/export/media', requireAuth, (_req, res) => {
+  const files = imageFiles();
+  const zip = makeZip(files);
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="chirper-media-${new Date().toISOString().slice(0, 10)}.zip"`);
+  res.setHeader('Content-Length', zip.length);
+  res.send(zip);
+});
+
+/* a zip can be far bigger than one picture, so it gets its own multer */
+const zipUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, DATA_DIR),
+    filename: (_req, _file, cb) => cb(null, `.restore-${Date.now()}.zip`),
+  }),
+  limits: { fileSize: 1024 * 1024 * 1024, files: 1 },
+});
+
+api.post('/export/media', requireAuth, zipUpload.single('file'), (req, res) => {
+  if (!req.file) return bad(res, 'No zip uploaded');
+  const tempPath = req.file.path;
+  try {
+    const entries = readZip(fs.readFileSync(tempPath));
+    let written = 0;
+    let skipped = 0;
+    for (const entry of entries) {
+      // never trust a path from inside an archive
+      const name = path.basename(entry.name.replace(/\\/g, '/'));
+      if (!/^[A-Za-z0-9._-]{1,140}$/.test(name) || name.startsWith('.') || !entry.data?.length) {
+        skipped++;
+        continue;
+      }
+      fs.writeFileSync(path.join(UPLOAD_DIR, name), entry.data);
+      written++;
+    }
+    broadcast('world', { action: 'media' });
+    res.json({ ok: true, written, skipped, total: entries.length });
+  } catch (err) {
+    return bad(res, `Could not read that zip: ${err.message}`);
+  } finally {
+    try {
+      fs.unlinkSync(tempPath);
+    } catch {
+      /* already gone */
+    }
+  }
+  return undefined;
 });
 
 api.post('/import', requireAuth, (req, res) => {
