@@ -20,6 +20,13 @@ as *just now*. Everything updates live for both of you at the same time.
 **Posts**
 - Compose from the floating **Post** button (bottom-right) or the sidebar's Post button — the
   feed itself stays clean with no inline "what's happening" box
+- Opening a post lays it out the way X does: text and media, then the date and view count in
+  small dim text on the same left edge as the icons, the action bar (which already carries the
+  reply / repost / like counts), and a small **Relevant ▾ / View quotes ›** row underneath
+- The **reply box sits right there** under the post with "Post your reply" and a Reply button —
+  the reply icon in the action bar just drops your cursor into it
+- Replies can be ordered **Relevant / Latest / Liked**, and **View quotes** lists every post that
+  quotes this one
 - Text, up to 4 images, replies, threads, quotes, reposts
 - **Any timestamp you want** — post as "now", or backdate it to 3 April 2019 at 4:12 PM
 - Edit the text, the time, and even the engagement numbers of a post after the fact
@@ -37,6 +44,8 @@ as *just now*. Everything updates live for both of you at the same time.
 - Tap "Upload avatar" / "Upload banner" in the profile editor, or paste a URL instead
 - Photos in chats tap open full-screen
 - Uploaded files live in `data/uploads` and are only served to signed-in visitors
+- If a file ever goes missing, the post quietly drops the image instead of leaving an empty
+  frame, and `/uploads/...` answers a real 404 rather than handing back the app shell
 
 **The time machine**
 - One clock shared by both of you — it lives in the right column (and in the ☁/clock modal)
@@ -90,8 +99,9 @@ as *just now*. Everything updates live for both of you at the same time.
 
 **Screenshot mode**
 - Press **S**, or use the mobile menu, Settings → Screenshots, or a post's ⋯ menu
-- Hides only what isn't Twitter — the time machine, "who's here", the Admin link, the
-  composer's clock button and the app-only badges — so what's left looks like a real page
+- Hides only what isn't Twitter — the time machine (it closes itself and can't be reopened
+  until you leave the mode), "who's here", the Admin link, the composer's clock button and the
+  app-only badges — so what's left looks like a real page
 - Three extra toggles: **Sidebar** (also hides the left nav, the right column and the status bar,
   leaving just the posts), **Header** (hides the column title and tabs), **Stats** (hides the
   reply/repost/like/bookmark row)

@@ -136,11 +136,12 @@ function personRow(p) {
   </div>`);
   row.querySelector('[data-follow]')?.addEventListener('click', async (e) => {
     e.stopPropagation();
+    const btn = e.currentTarget;
     try {
       await api(`/accounts/${p.id}/follow`, { method: 'POST', body: { on: !p.isFollowedByViewer } });
       p.isFollowedByViewer = !p.isFollowedByViewer;
-      e.currentTarget.textContent = p.isFollowedByViewer ? 'Following' : 'Follow';
-      e.currentTarget.classList.toggle('outline-follow', p.isFollowedByViewer);
+      btn.textContent = p.isFollowedByViewer ? 'Following' : 'Follow';
+      btn.classList.toggle('outline-follow', p.isFollowedByViewer);
     } catch (err) {
       errorToast(err);
     }

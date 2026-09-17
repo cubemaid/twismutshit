@@ -123,6 +123,12 @@ export function decoratePosts(rows, viewerId = null, noQuotes = false) {
       .all(...ids)
       .map((r) => [r.id, r.n])
   );
+  const quoteCounts = new Map(
+    db
+      .prepare(`SELECT quote_of_id id, COUNT(*) n FROM posts WHERE quote_of_id IN (${ph}) AND is_deleted = 0 GROUP BY quote_of_id`)
+      .all(...ids)
+      .map((r) => [r.id, r.n])
+  );
 
   const quoteMap = new Map();
   if (!noQuotes) {
@@ -166,6 +172,7 @@ export function decoratePosts(rows, viewerId = null, noQuotes = false) {
       repostCount,
       bookmarkCount: bookmarks.length,
       replyCount: replyCounts.get(row.id) || 0,
+      quoteCount: quoteCounts.get(row.id) || 0,
       viewCount: Math.max(likeCount * 24 + repostCount * 8, row.view_boost || 0),
       likedBy: likes.map((l) => l.account_id),
       repostedBy: reposts.map((r) => r.account_id),

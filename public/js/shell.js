@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { icons, icon } from './icons.js';
-import { setShotMode } from './screenshot.js';
+import { isShotMode, setShotMode } from './screenshot.js';
 import { acting, state, setNickname, nickname, emit, on } from './store.js';
 import { socketAct, socketId } from './socket.js';
 import {
@@ -171,13 +171,34 @@ export function clockBanner() {
 }
 
 export function openClockModal() {
+  // nothing Chirper-only may appear in a clean screenshot
+  if (isShotMode()) return null;
   const body = el('<div></div>');
   body.appendChild(clockCard());
   body.insertAdjacentHTML(
     'beforeend',
     `<div class="hint" style="margin-top:14px">Tip: hover the clock button in a composer and right-click it to snap back to "now".</div>`
   );
-  return openModal({ title: 'Time machine', body, slim: true });
+  const modal = openModal({ title: 'Time machine', body, slim: true });
+  modal.modal.closest('.modal-backdrop')?.classList.add('clock-modal');
+  clockModal = modal;
+  shotWatch();
+  return modal;
+}
+
+/* the time machine is tracked so screenshot mode can shut it on its way in */
+let clockModal = null;
+let clockWatchWired = false;
+
+function shotWatch() {
+  if (clockWatchWired) return;
+  clockWatchWired = true;
+  on('shot-mode', (on) => {
+    if (!on || !clockModal) return;
+    const instance = clockModal;
+    clockModal = null;
+    instance.close();
+  });
 }
 
 /* ------------------------------------------------------------------ *
@@ -418,11 +439,12 @@ export function renderRail() {
       row.querySelector('[data-follow]').addEventListener('click', async (e) => {
         e.stopPropagation();
         if (!acting()) return toast('Pick an account first', 'error');
+        const btn = e.currentTarget;
         try {
           await api(`/accounts/${acc.id}/follow`, { method: 'POST', body: { on: !acc.isFollowedByViewer } });
           acc.isFollowedByViewer = !acc.isFollowedByViewer;
-          e.currentTarget.textContent = acc.isFollowedByViewer ? 'Following' : 'Follow';
-          e.currentTarget.classList.toggle('outline-follow', acc.isFollowedByViewer);
+          btn.textContent = acc.isFollowedByViewer ? 'Following' : 'Follow';
+          btn.classList.toggle('outline-follow', acc.isFollowedByViewer);
         } catch (err) {
           errorToast(err);
         }

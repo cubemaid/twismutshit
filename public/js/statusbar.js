@@ -157,7 +157,7 @@ function buildBar(prefs, here) {
   }
 
   if (has('clock')) {
-    const b = act('<span class="sb-dot" data-state="live"></span><span class="sb-clock"></span>', 'Time machine');
+    const b = act('<span class="sb-dot" data-state="live"></span><span class="sb-clock"></span>', 'Time machine', 'sb-time');
     const clock = b.querySelector('.sb-clock');
     clock.dataset.clock24 = prefs.clock24 ? '1' : '0';
     clockNodes.add(clock);

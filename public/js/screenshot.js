@@ -1,4 +1,5 @@
 import { icons } from './icons.js';
+import { emit } from './store.js';
 import { el, openModal } from './ui.js';
 
 /**
@@ -48,6 +49,8 @@ export function setShotMode(on) {
   if (on === active) return;
   active = on;
   document.documentElement.classList.toggle('shot', on);
+  // the time machine is Chirper furniture, so it must not survive into a shot
+  emit('shot-mode', on);
 
   if (!on) {
     clearTimeout(hideTimer);

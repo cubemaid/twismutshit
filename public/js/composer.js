@@ -149,6 +149,7 @@ export function createComposer({
   initialTime = null,
   onDone = null,
   placeholder = "What's happening?",
+  submitLabel = null,
   autoFocus = false,
   compact = false,
 } = {}) {
@@ -171,7 +172,7 @@ export function createComposer({
           <circle class="bg" cx="13" cy="13" r="11"></circle>
           <circle class="fg" cx="13" cy="13" r="11" stroke-dasharray="69.1" stroke-dashoffset="69.1" transform="rotate(-90 13 13)"></circle>
         </svg>
-        <button class="btn" data-submit disabled>${editPost ? 'Save' : 'Post'}</button>
+        <button class="btn" data-submit disabled>${editPost ? 'Save' : submitLabel || 'Post'}</button>
       </div>
     </div>
   </div>`);

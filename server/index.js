@@ -35,6 +35,9 @@ app.use(
   },
   express.static(UPLOAD_DIR, { maxAge: '30d', fallthrough: true })
 );
+// A file that is gone has to answer 404, never the app shell: an <img> that
+// receives index.html silently renders as a broken sliver.
+app.use('/uploads', (_req, res) => res.status(404).json({ error: 'No such image' }));
 // max-age 0 + etag: the browser revalidates on every load, so a `git pull`
 // on the VPS is picked up immediately instead of an hour later.
 app.use(express.static(PUBLIC_DIR, { maxAge: 0, etag: true, lastModified: true }));

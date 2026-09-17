@@ -97,11 +97,12 @@ export function profileView({ handle, tab: initialTab = 'posts' }) {
     );
     profileHead.querySelector('[data-follow]')?.addEventListener('click', async (e) => {
       if (!me) return toast('Pick an account first', 'error');
+      const btn = e.currentTarget;
       try {
         await api(`/accounts/${acc.id}/follow`, { method: 'POST', body: { on: !acc.isFollowedByViewer } });
         acc.isFollowedByViewer = !acc.isFollowedByViewer;
-        e.currentTarget.textContent = acc.isFollowedByViewer ? 'Following' : 'Follow';
-        e.currentTarget.classList.toggle('outline-follow', acc.isFollowedByViewer);
+        btn.textContent = acc.isFollowedByViewer ? 'Following' : 'Follow';
+        btn.classList.toggle('outline-follow', acc.isFollowedByViewer);
         refreshCounts(acc.id);
       } catch (err) {
         errorToast(err);

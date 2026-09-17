@@ -562,6 +562,32 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
 .engage-line .face:first-child { margin-left: 0; }
 
 .post-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; max-width: 480px; gap: 2px; }
+
+/* --- the post page: X's order inside the post ---------------------------
+   text → date + views → action bar → reply sort / view quotes.
+   The action bar already carries the reply, repost, like and bookmark
+   counts, so there is deliberately no second stats row.
+   Everything under the text is pulled out from under the avatar
+   (48px avatar + 12px gap) so it lines up with the action row and the
+   rules span the whole column, like X. */
+.post-meta-line { margin-top: 12px; font-size: 14px; color: var(--text-dim); }
+.post.detail .post-meta-line,
+.post.detail .post-actions,
+.post.detail .post-quotes { margin-left: -60px; }
+.post.detail .post-actions {
+  max-width: none; margin-top: 12px; padding: 12px 0 2px;
+  border-top: 1px solid var(--border-soft);
+}
+.post.detail .post-quotes {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0 0; font-size: 13px; color: var(--text-dim);
+}
+.sort-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--text-dim); }
+.sort-btn:hover { color: var(--text); }
+.sort-btn svg { width: 12px; height: 12px; }
+.link-btn { font-size: 13px; font-weight: 600; color: var(--accent); }
+.link-btn:hover { text-decoration: underline; }
+.quote-list .post { cursor: default; }
 .act {
   display: flex; align-items: center; gap: 4px; padding: 4px 8px;
   border-radius: 999px; color: var(--text-dim); font-size: 13px; font-weight: 600;
@@ -933,6 +959,8 @@ html.shot .post-fab { display: none !important; }
 html.dm-open .post-fab { display: none !important; }
 
 html.shot .col-head { position: static; background: none; backdrop-filter: none; }
+/* belt and braces: the time machine is the one dialog that must never be in a shot */
+html.shot .clock-modal { display: none !important; }
 html.shot.hide-head .col-head { display: none !important; }
 html.shot.hide-stats .post-actions { display: none !important; }
 html.shot.hide-chrome .sidebar,

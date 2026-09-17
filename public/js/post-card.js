@@ -425,7 +425,7 @@ function openRepostMenu(ev, post) {
 /* ------------------------------------------------------------------ *
  * card
  * ------------------------------------------------------------------ */
-export function postCard(post, { showReplyTo = true, reposter = null, clickable = true, highlight = false } = {}) {
+export function postCard(post, { showReplyTo = true, reposter = null, clickable = true, highlight = false, onReply = null } = {}) {
   const card = el(`<article class="post" data-post-id="${post.id}">
     <div class="post-avatar">${avatarHTML(post.author, 'a48')}</div>
     <div class="post-main">
@@ -437,6 +437,20 @@ export function postCard(post, { showReplyTo = true, reposter = null, clickable 
     </div>
   </article>`);
   if (highlight) card.style.background = 'rgba(29,155,240,.06)';
+
+  /* An image whose file is gone must not leave an empty bordered box behind. */
+  const mediaBox = card.querySelector('[data-media]');
+  if (mediaBox) {
+    const drop = (img) => {
+      img.remove();
+      if (!mediaBox.querySelector('img')) mediaBox.remove();
+    };
+    mediaBox.querySelectorAll('img').forEach((img) => {
+      img.addEventListener('error', () => drop(img));
+      // it may already have failed before this listener existed
+      if (img.complete && img.naturalWidth === 0) drop(img);
+    });
+  }
 
   const update = (dto) => {
     const head = card.querySelector('.post-head');
@@ -458,7 +472,8 @@ export function postCard(post, { showReplyTo = true, reposter = null, clickable 
   function wire() {
     card.querySelector('[data-act="reply"]')?.addEventListener('click', (e) => {
       e.stopPropagation();
-      handleAction('reply', post);
+      if (onReply) onReply(post);
+      else handleAction('reply', post);
     });
     card.querySelector('[data-act="repost"]')?.addEventListener('click', (e) => {
       e.stopPropagation();

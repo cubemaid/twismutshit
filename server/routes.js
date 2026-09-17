@@ -355,6 +355,15 @@ api.get('/posts/:id/replies', (req, res) => {
   res.json({ items: decoratePosts(rows, viewer) });
 });
 
+api.get('/posts/:id/quotes', (req, res) => {
+  const id = Number(req.params.id);
+  const viewer = req.auth.actingAccountId || null;
+  const rows = db
+    .prepare('SELECT * FROM posts WHERE quote_of_id = ? AND is_deleted = 0 ORDER BY created_at DESC')
+    .all(id);
+  res.json({ items: decoratePosts(rows, viewer) });
+});
+
 api.post('/posts', requireAuth, (req, res) => {
   const as = requireActor(req, res);
   if (!as) return undefined;
