@@ -11,7 +11,7 @@ import { acting, emit, state } from './store.js';
 import { avatarHTML, el, esc, openModal, route } from './ui.js';
 import { isAltered, isFrozen, now, onClockChange, timeOfDay } from './time.js';
 import { openAccountMenu, openClockModal, openMobileDrawer } from './shell.js';
-import { setShotMode } from './screenshot.js';
+import { isShotMode, setShotMode } from './screenshot.js';
 
 const KEY = 'chirper:statusbar';
 
@@ -217,8 +217,9 @@ function buildBar(prefs, here) {
   }
 
   if (has('shot')) {
-    const b = act(icons.image, 'Screenshot mode');
-    b.addEventListener('click', () => setShotMode(true));
+    const on = isShotMode();
+    const b = act(icons.image, on ? 'Leave screenshot mode (S)' : 'Screenshot mode', `sb-shot${on ? ' on' : ''}`);
+    b.addEventListener('click', () => setShotMode(!isShotMode()));
     right.appendChild(b);
   }
 

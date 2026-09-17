@@ -275,6 +275,13 @@ on('statusbar', () => {
   paintStatusbar(parseRoute());
 });
 
+/* screenshot mode is toggled from the status bar, the S key, Settings and the
+   post menu — whichever way it goes, the bar has to redraw to match */
+on('shot-mode', () => {
+  if (!layout) return;
+  paintStatusbar(parseRoute());
+});
+
 on('settings', (settings) => {
   state.settings = settings;
   if (settings.accent) document.documentElement.style.setProperty('--accent', settings.accent);

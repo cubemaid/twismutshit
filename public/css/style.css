@@ -182,6 +182,7 @@ button { cursor: pointer; background: none; border: none; padding: 0; }
 .sb-plain { cursor: inherit; }
 [data-sb-act]:hover { background: rgba(231, 233, 234, 0.14); }
 .sb-item.sb-plain { color: var(--text-dim); font-weight: 500; }
+.sb-item.sb-shot.on { color: var(--accent); background: var(--accent-soft); }
 
 .sb-menu { display: none; }
 .sb-clock { font-variant-numeric: tabular-nums; letter-spacing: 0.3px; }

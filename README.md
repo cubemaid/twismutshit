@@ -101,7 +101,9 @@ as *just now*. Everything updates live for both of you at the same time.
 - Who to follow
 
 **Screenshot mode**
-- Press **S**, or use the mobile menu, Settings → Screenshots, or a post's ⋯ menu
+- Press **S**, or use the mobile menu, Settings → Screenshots, a post's ⋯ menu, or the camera in
+  the status bar (if you've added that item) — every entry point toggles it both ways, and the
+  camera lights up while the mode is on
 - Hides only what isn't Twitter — the time machine (it closes itself and can't be reopened
   until you leave the mode), "who's here", the Admin link, the composer's clock button and the
   app-only badges — so what's left looks like a real page
