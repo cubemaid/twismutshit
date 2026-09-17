@@ -1044,6 +1044,28 @@ api.post('/export/media', requireAuth, zipUpload.single('file'), (req, res) => {
 api.post('/import', requireAuth, (req, res) => {
   const dump = req.body;
   if (!dump?.tables) return bad(res, 'Bad export file');
+  applyDump(dump);
+  broadcast('world', { action: 'import' });
+  res.json({ ok: true });
+});
+
+/* ------------------------------------------------------------------ *
+ * safety copies
+ *
+ * A reset is destructive on purpose, which is exactly when a mistake hurts.
+ * Every reset now writes a full dump to data/backups/ first, and those files
+ * can be restored from the admin panel.
+ * ------------------------------------------------------------------ */
+const BACKUP_DIR = path.join(DATA_DIR, 'backups');
+const KEEP_BACKUPS = 10;
+
+function dumpWorld(extra = {}) {
+  const dump = { version: 1, exportedAt: Date.now(), ...extra, tables: {} };
+  for (const t of TABLES) dump.tables[t] = db.prepare(`SELECT * FROM ${t}`).all();
+  return dump;
+}
+
+function applyDump(dump) {
   const tables = Object.keys(dump.tables).filter((t) => TABLES.includes(t));
   db.transaction(() => {
     db.exec('PRAGMA foreign_keys = OFF');
@@ -1059,12 +1081,65 @@ api.post('/import', requireAuth, (req, res) => {
     }
     db.exec('PRAGMA foreign_keys = ON');
   })();
-  broadcast('world', { action: 'import' });
-  res.json({ ok: true });
+}
+
+function writeSafetyCopy(label) {
+  try {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const name = `${stamp}-before-${label}.json`;
+    fs.writeFileSync(path.join(BACKUP_DIR, name), JSON.stringify(dumpWorld({ scope: label })));
+    const all = fs.readdirSync(BACKUP_DIR).filter((f) => f.endsWith('.json')).sort();
+    for (const old of all.slice(0, Math.max(0, all.length - KEEP_BACKUPS))) fs.unlinkSync(path.join(BACKUP_DIR, old));
+    return name;
+  } catch {
+    return null; // never let a backup problem block the reset
+  }
+}
+
+api.get('/admin/backups', requireAuth, (_req, res) => {
+  let names = [];
+  try {
+    names = fs.readdirSync(BACKUP_DIR).filter((f) => f.endsWith('.json'));
+  } catch {
+    /* none yet */
+  }
+  const items = names.map((name) => {
+    const stat = fs.statSync(path.join(BACKUP_DIR, name));
+    return { name, bytes: stat.size, at: stat.mtimeMs };
+  });
+  items.sort((a, b) => b.at - a.at);
+  res.json({ items });
+});
+
+api.get('/admin/backups/:name', requireAuth, (req, res) => {
+  const name = path.basename(String(req.params.name));
+  const full = path.join(BACKUP_DIR, name);
+  if (!name.endsWith('.json') || !fs.existsSync(full)) return bad(res, 'No such safety copy', 404);
+  res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+  res.type('application/json').send(fs.readFileSync(full));
+  return undefined;
+});
+
+api.post('/admin/backups/restore', requireAuth, (req, res) => {
+  const name = path.basename(String(req.body?.name || ''));
+  const full = path.join(BACKUP_DIR, name);
+  if (!name.endsWith('.json') || !fs.existsSync(full)) return bad(res, 'No such safety copy', 404);
+  try {
+    const dump = JSON.parse(fs.readFileSync(full, 'utf8'));
+    if (!dump?.tables) return bad(res, 'That safety copy is not readable');
+    applyDump(dump);
+    broadcast('world', { action: 'import' });
+    return res.json({ ok: true, restored: name });
+  } catch (err) {
+    return bad(res, `Could not restore: ${err.message}`);
+  }
 });
 
 api.post('/admin/reset', requireAuth, (req, res) => {
   const scope = req.body?.scope || 'all';
+  // keep a way back before destroying anything
+  const backup = writeSafetyCopy(scope);
   db.transaction(() => {
     if (scope === 'dms') {
       for (const t of ['messages', 'conversation_reads', 'conversation_participants', 'conversations']) {
@@ -1105,5 +1180,5 @@ api.post('/admin/reset', requireAuth, (req, res) => {
     notifications: db.prepare('SELECT COUNT(*) n FROM notifications').get().n,
     messages: db.prepare('SELECT COUNT(*) n FROM messages').get().n,
   };
-  res.json({ ok: true, left });
+  res.json({ ok: true, left, backup });
 });

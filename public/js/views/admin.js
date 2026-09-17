@@ -344,14 +344,14 @@ async function doReset(scope) {
     title: `Delete ${labels[scope]}?`,
     message:
       scope === 'all'
-        ? 'Every account, post, DM, notification and trend is erased and nothing is recreated. Export a backup first!'
-        : 'This cannot be undone.',
+        ? 'Every account, post, DM, notification and trend is erased and nothing is recreated. A safety copy is written first, so you can put it back from the list below.'
+        : 'A safety copy is written first, so you can put it back from the list below.',
     confirmLabel: scope === 'all' ? 'Wipe everything' : 'Delete',
   }))) return;
   const res = await api('/admin/reset', { method: 'POST', body: { scope } });
   const left = res?.left;
-  toast(left ? `Wiped — ${left.accounts} accounts, ${left.posts} posts left` : 'Done — reloading');
-  setTimeout(() => location.reload(), 900);
+  toast(res?.backup ? 'Wiped — safety copy saved' : left ? `Wiped — ${left.accounts} accounts, ${left.posts} posts left` : 'Done — reloading');
+  setTimeout(() => location.reload(), 1500);
 }
 
 /* ------------------------------------------------------------------ *
@@ -404,7 +404,16 @@ function renderData(body) {
           <button class="btn ghost" data-reset-posts>Delete all posts</button>
           <button class="btn danger" data-reset-all>Reset the whole world</button>
         </div>
+        <div class="hint">
+          Each of these writes a safety copy into <code>data/backups/</code> first, so an accidental
+          click is recoverable from the list below.
+        </div>
       </div>
+    </div>
+
+    <div class="card" data-backups-card hidden>
+      <div class="card-head sm">${icons.shield} Safety copies</div>
+      <div class="card-body" data-backups><div class="small muted">Checking…</div></div>
     </div>
   </div>`);
 
@@ -446,6 +455,59 @@ function renderData(body) {
 
   body.appendChild(wrap);
   loadStorage(wrap.querySelector('[data-storage]'));
+  loadBackups(wrap);
+}
+
+/**
+ * Safety copies: written automatically before every reset. Restoring one puts
+ * the world back exactly as it was at that moment.
+ */
+async function loadBackups(wrap) {
+  const card = wrap.querySelector('[data-backups-card]');
+  const node = wrap.querySelector('[data-backups]');
+  let items = [];
+  try {
+    items = (await api('/admin/backups')).items || [];
+  } catch {
+    card.hidden = true;
+    return;
+  }
+  if (!items.length) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+  node.innerHTML = '';
+  items.forEach((b) => {
+    const when = new Date(b.at).toLocaleString();
+    const kb = Math.max(1, Math.round(b.bytes / 1024));
+    const label = b.name.replace(/\.json$/, '').replace(/before-/, 'before ');
+    const row = el(`<div class="row" style="align-items:center;gap:10px;padding:6px 0">
+      <div class="grow nowrap">
+        <div class="small bold">${esc(label)}</div>
+        <div class="muted tiny">${esc(when)} · ${kb}KB</div>
+      </div>
+      <a class="btn sm ghost" href="/api/admin/backups/${encodeURIComponent(b.name)}">${icons.download}</a>
+      <button class="btn sm" data-restore>${icons.refresh} Restore</button>
+    </div>`);
+    row.querySelector('[data-restore]').addEventListener('click', async () => {
+      const yes = await confirmDialog({
+        title: 'Restore this safety copy?',
+        message: `The world goes back to how it was on ${when}. Anything written since then is replaced.`,
+        confirmLabel: 'Restore',
+        danger: false,
+      });
+      if (!yes) return;
+      try {
+        await api('/admin/backups/restore', { method: 'POST', body: { name: b.name } });
+        toast('Restored — reloading');
+        setTimeout(() => location.reload(), 700);
+      } catch (err) {
+        errorToast(err);
+      }
+    });
+    node.appendChild(row);
+  });
 }
 
 /**

@@ -119,6 +119,9 @@ as *just now*. Everything updates live for both of you at the same time.
   not just the one selected in the dropdown
 - Trends CRUD
 - The time machine, plus resets: delete all messages / delete all posts / **wipe everything**
+- **Every reset writes a safety copy first** — a full.json dump in `data/backups/` (the newest 10
+  are kept). Admin → Data → **Safety copies** lists them with a one-click **Restore** and a
+  download link, so an accidental wipe is a two-click mistake to undo
 - **Wipe everything** leaves a genuinely empty world — zero accounts, posts, DMs, notifications
   and trends. Nothing is recreated afterwards, so the next visit asks you to make a new account.
   (A brand-new install still seeds two starter characters once.)

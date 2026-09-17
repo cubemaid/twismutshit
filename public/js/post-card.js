@@ -438,19 +438,19 @@ export function postCard(post, { showReplyTo = true, reposter = null, clickable 
   </article>`);
   if (highlight) card.style.background = 'rgba(29,155,240,.06)';
 
-  /* An image whose file is gone must not leave an empty bordered box behind. */
-  const mediaBox = card.querySelector('[data-media]');
-  if (mediaBox) {
+  /* An image whose file is gone must not leave an empty bordered box behind.
+     Only the error event may decide that: a *detached* <img> reports
+     complete === true with naturalWidth 0 in Chrome before it has even begun
+     loading, so an eager "complete && !naturalWidth" test would throw away
+     every picture on the page. The listener is wired before the card is ever
+     inserted, so nothing can fail before we are listening. */
+  card.querySelectorAll('[data-media]').forEach((box) => {
     const drop = (img) => {
       img.remove();
-      if (!mediaBox.querySelector('img')) mediaBox.remove();
+      if (!box.querySelector('img')) box.remove();
     };
-    mediaBox.querySelectorAll('img').forEach((img) => {
-      img.addEventListener('error', () => drop(img));
-      // it may already have failed before this listener existed
-      if (img.complete && img.naturalWidth === 0) drop(img);
-    });
-  }
+    box.querySelectorAll('img').forEach((img) => img.addEventListener('error', () => drop(img)));
+  });
 
   const update = (dto) => {
     const head = card.querySelector('.post-head');
